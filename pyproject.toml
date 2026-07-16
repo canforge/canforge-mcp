@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "canforge-mcp"
+version = "0.1.0"
+description = "Local, read-only MCP tools for CAN databases and capture logs"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+authors = [{ name = "André Delgado", email = "andre@adelgado.io" }]
+keywords = ["CAN", "DBC", "MCP", "canbus", "automotive"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "mcp>=1.28,<2",
+    "capkit>=0.2,<0.3",
+    "dbckit>=1.0,<2",
+]
+
+[project.urls]
+Homepage = "https://canforge.io/canforge-mcp"
+Repository = "https://github.com/canforge/canforge-mcp"
+Changelog = "https://github.com/canforge/canforge-mcp/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = [
+    "build",
+    "mypy",
+    "pytest>=8.0",
+    "pytest-asyncio",
+    "pytest-cov",
+    "ruff",
+]
+
+[project.scripts]
+canforge-mcp = "canforge_mcp.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["canforge_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short"
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["canforge_mcp"]
+
+[tool.coverage.report]
+fail_under = 90
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+no_strict_optional = true
+warn_unused_ignores = false
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

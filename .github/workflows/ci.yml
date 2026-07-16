@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  test:
+    name: "Test (Python ${{ matrix.python-version }})"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Type-check
+        run: mypy canforge_mcp
+      - name: Test and coverage gate
+        run: python -m pytest --cov=canforge_mcp --cov-fail-under=90 -q
+
+  build:
+    name: Build check
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build frontend
+        run: python -m pip install build
+      - name: Build sdist and wheel
+        run: python -m build
+      - name: Verify wheel contents and console script
+        run: >-
+          python -c "from pathlib import Path;
+          import zipfile;
+          wheel=next(Path('dist').glob('*.whl'));
+          archive=zipfile.ZipFile(wheel);
+          names=archive.namelist();
+          assert 'canforge_mcp/py.typed' in names;
+          entry=next(name for name in names if name.endswith('entry_points.txt'));
+          text=archive.read(entry).decode();
+          assert '[console_scripts]' in text;
+          assert 'canforge-mcp = canforge_mcp.server:main' in text"
