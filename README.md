@@ -69,7 +69,42 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-Restart the client after changing its MCP configuration.
+Restart Claude after changing its MCP configuration.
+
+### ChatGPT (Secure MCP Tunnel)
+
+ChatGPT cannot start a local stdio MCP server directly. Use OpenAI's
+[Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels)
+to keep Canforge running locally without exposing it to the public internet.
+
+Before starting, enable developer mode in ChatGPT under **Settings → Security
+and login**, then create a tunnel in the OpenAI Platform. You need its tunnel
+ID, a runtime API key, and the `tunnel-client` binary. Make sure the tunnel is
+associated with the ChatGPT workspace where you will use Canforge.
+
+Configure and start the tunnel with placeholder credentials:
+
+```bash
+export CONTROL_PLANE_API_KEY="sk-..."
+
+tunnel-client init \
+  --sample sample_mcp_stdio_local \
+  --profile canforge \
+  --tunnel-id tunnel_your_id \
+  --mcp-command "uvx canforge-mcp"
+
+tunnel-client doctor --profile canforge --explain
+tunnel-client run --profile canforge
+```
+
+Keep `tunnel-client run` running while using Canforge. In ChatGPT, open
+**Settings → Plugins**, add a developer-mode app, choose **Tunnel** as the
+connection, and select or paste the tunnel ID. Add the new app to a chat before
+asking ChatGPT to use the Canforge tools.
+
+Canforge resolves paths on the machine running `tunnel-client`. Files attached
+directly to a ChatGPT conversation are not automatically available as local
+filesystem paths; provide an accessible local path instead.
 
 ## Design
 
