@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 
 import pytest
@@ -148,6 +148,7 @@ def test_log_signal_inventory_summarizes_one_pass_exact_matches(
         "message_id": "0xCFBFFDB",
         "message": "EngineData",
         "match_mode": "exact",
+        "j1939": {"priority": 3, "pgn": 64511, "source_address": 219},
     }
     message = result["messages"][0]
     assert message["frame_count"] == 59
@@ -255,10 +256,72 @@ def test_log_signal_inventory_keeps_ambiguous_j1939_matches_explicit(tmp_path: P
     assert result["match_modes_used"] == ["j1939"]
     ambiguity = result["ambiguities"][0]
     assert ambiguity["id"] == "0xCF004AB"
+    assert ambiguity["j1939"] == {"priority": 3, "pgn": 61444, "source_address": 171}
     assert [candidate["message"] for candidate in ambiguity["candidates"]] == [
         "EngineData",
         "EngineVariant",
     ]
+    assert all("j1939" not in candidate for candidate in ambiguity["candidates"])
+
+
+def test_j1939_enrichment_covers_observed_id_rows_only(tmp_path: Path) -> None:
+    dbc = _write_j1939_dbc(tmp_path / "j1939.dbc")
+    log = _write_candump(
+        tmp_path / "mixed.log",
+        [
+            (1.0, 0x123, b"\x01"),
+            (2.0, 0x18EF20A5, b"\x02"),
+            (3.0, 0x18F00401, b"\x03" + b"\x00" * 7),
+        ],
+    )
+    pdu1 = {"priority": 6, "pgn": 61184, "source_address": 165}
+    pdu2 = {"priority": 6, "pgn": 61444, "source_address": 1}
+
+    stats = tools.log_stats(str(log))
+    stats_by_id = {row["id"]: row for row in stats["top_ids"]}
+    assert "j1939" not in stats_by_id["0x123"]
+    assert stats_by_id["0x18EF20A5"]["j1939"] == pdu1
+    assert stats_by_id["0x18F00401"]["j1939"] == pdu2
+
+    inventory = tools.log_signal_inventory(str(dbc), str(log))
+    unique_by_id = {row["id"]: row for row in inventory["unique_ids"]}
+    assert "j1939" not in unique_by_id["0x123"]
+    assert unique_by_id["0x18EF20A5"]["j1939"] == pdu1
+    assert unique_by_id["0x18F00401"]["j1939"] == pdu2
+
+    assert inventory["matched_ids"][0]["j1939"] == pdu2
+    unmatched_by_id = {row["id"]: row for row in inventory["unmatched_ids"]}
+    assert "j1939" not in unmatched_by_id["0x123"]
+    assert unmatched_by_id["0x18EF20A5"]["j1939"] == pdu1
+    assert inventory["messages"][0]["source_ids"][0]["j1939"] == pdu2
+    assert "j1939" not in inventory["messages"][0]
+
+
+def test_log_stats_decomposes_each_distinct_extended_id_once(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    log = _write_candump(
+        tmp_path / "repeated.log",
+        [
+            (1.0, 0x18EF20A5, b"\x01"),
+            (2.0, 0x18EF20A5, b"\x02"),
+            (3.0, 0x18F00401, b"\x03"),
+            (4.0, 0x123, b"\x04"),
+        ],
+    )
+    real_decompose = tools.capkit.decompose_j1939_id
+    calls: list[int] = []
+
+    def tracking_decompose(arbitration_id: int):  # type: ignore[no-untyped-def]
+        calls.append(arbitration_id)
+        return real_decompose(arbitration_id)
+
+    monkeypatch.setattr(tools.capkit, "decompose_j1939_id", tracking_decompose)
+
+    tools.log_stats(str(log))
+
+    assert calls == [0x18EF20A5, 0x18F00401]
 
 
 def test_log_signal_inventory_surfaces_lenient_diagnostics_and_safety(tmp_path: Path) -> None:
@@ -438,6 +501,64 @@ def test_read_frames_filters_ids_and_time(candump_log: Path) -> None:
     assert result["frames"][0]["data_hex"] == "1B3120EBB3FFD9FF"
     assert result["frames"][0]["extended"] is True
     assert result["frames"][0]["rx"] is True
+
+
+def test_read_frames_delegates_inclusive_and_composed_filters_to_capkit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    log = _write_candump(
+        tmp_path / "filters.log",
+        [
+            (1.0, 0x123, b"\x01"),
+            (2.0, 0x456, b"\x02"),
+            (3.0, 0x123, b"\x03"),
+        ],
+    )
+    real_filter_frames = tools.capkit.filter_frames
+    calls: list[dict[str, object]] = []
+
+    def tracking_filter_frames(frames: Iterable[tools.Frame], **kwargs: object) -> Iterator[tools.Frame]:
+        calls.append(kwargs)
+        return real_filter_frames(frames, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(tools.capkit, "filter_frames", tracking_filter_frames)
+
+    id_only = tools.read_frames(str(log), id_filter=["0x123"])
+    time_only = tools.read_frames(str(log), time_start=2.0, time_end=3.0)
+    combined = tools.read_frames(str(log), id_filter=["0x123"], time_start=1.0, time_end=1.0)
+    empty = tools.read_frames(str(log), id_filter=[])
+
+    assert [row["timestamp"] for row in id_only["frames"]] == [1.0, 3.0]
+    assert [row["timestamp"] for row in time_only["frames"]] == [2.0, 3.0]
+    assert [row["timestamp"] for row in combined["frames"]] == [1.0]
+    assert empty["frames"] == []
+    assert calls == [
+        {"arbitration_ids": {0x123}, "start_time": None, "end_time": None},
+        {"arbitration_ids": None, "start_time": 2.0, "end_time": 3.0},
+        {"arbitration_ids": {0x123}, "start_time": 1.0, "end_time": 1.0},
+        {"arbitration_ids": set(), "start_time": None, "end_time": None},
+    ]
+
+
+def test_reversed_time_window_keeps_error_text_and_does_not_read_log(
+    candump_log: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    read_calls = 0
+
+    def counting_read(*args: object, **kwargs: object) -> object:
+        nonlocal read_calls
+        read_calls += 1
+        raise AssertionError("log should not be consumed")
+
+    monkeypatch.setattr(tools.capkit, "read", counting_read)
+
+    with pytest.raises(ValueError) as captured:
+        tools.read_frames(str(candump_log), time_start=2.0, time_end=1.0)
+
+    assert str(captured.value) == "time_start must be less than or equal to time_end."
+    assert read_calls == 0
 
 
 def test_read_frames_empty_filter_and_cap(candump_log: Path) -> None:

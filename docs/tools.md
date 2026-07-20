@@ -62,7 +62,9 @@ format names in the MCP error.
 
 Scans a log and returns frame count, first and last timestamps, time span,
 unique-ID count, and top IDs by frame count. `median_cycle_time` is in seconds.
-`top` is capped at 200.
+`top` is capped at 200. Each top-ID row for an observed extended frame also
+includes a `j1939` object with integer `priority`, `pgn`, and `source_address`
+fields derived from the raw arbitration ID.
 
 ### `read_frames(log_path, id_filter?, time_start?, time_end?, limit=100)`
 
@@ -92,6 +94,13 @@ The response includes:
 - signal units, multiplex indicators, and DBC value labels;
 - observed raw selector, physical value, and optional label for multiplexers;
 - DBC-wide decode safety and ordered lenient-parse diagnostics.
+
+Every row that represents an observed extended log ID includes the same raw-ID
+`j1939` object with integer `priority`, `pgn`, and `source_address` fields. This
+applies to unique, matched, unmatched, ambiguous, and per-message source-ID
+rows. DBC message IDs and ambiguity candidate IDs are not enriched. The fields
+are descriptive capkit arithmetic and do not affect dbckit's DBC-aware matching
+or signal decoding.
 
 With `include_values=true`, each observed signal also includes distinct decoded
 values in first-observed order. Values are omitted by default.

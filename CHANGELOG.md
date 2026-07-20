@@ -22,6 +22,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   retaining exact `total` counts from matching DBC arbitration IDs.
 - Raised the supported capkit runtime range from `>=0.2,<0.3` to
   `>=0.3,<0.4`.
+- Delegated log ID and inclusive time-window filtering to capkit 0.3's lazy
+  stream operations.
+- Added raw J1939 priority, PGN, and source-address enrichment for observed
+  extended IDs returned by `log_stats` and `log_signal_inventory`.
 
 ## [0.1.0] — 2026-07-16
 

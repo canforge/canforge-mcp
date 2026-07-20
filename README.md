@@ -127,6 +127,8 @@ filesystem paths; provide an accessible local path instead.
 - DBC support and validation behavior follow dbckit 1.x.
 - Timestamps are floats exactly as recorded by capkit; they are not rebased.
 - Median cycle time is the median gap between consecutive occurrences of an ID.
+- capkit adds raw priority, PGN, and source-address fields for observed extended
+  IDs; dbckit remains responsible for DBC-aware J1939 matching and decoding.
 - `signal_timeseries` uses deterministic, evenly spaced index sampling when a
   series exceeds `max_points`; it is intended for inspection, not resampling or
   signal processing.

@@ -300,6 +300,29 @@ def _validate_time_window(time_start: float | None, time_end: float | None) -> N
         raise ValueError("time_start must be less than or equal to time_end.")
 
 
+def _observe_j1939(frame: Frame, fields_by_id: dict[int, dict[str, int]]) -> None:
+    if not frame.is_extended_frame or frame.arbitration_id in fields_by_id:
+        return
+    fields = capkit.decompose_j1939_id(frame.arbitration_id)
+    fields_by_id[frame.arbitration_id] = {
+        "priority": fields.priority,
+        "pgn": fields.pgn,
+        "source_address": fields.source_address,
+    }
+
+
+def _observed_id_row(
+    arbitration_id: int,
+    fields_by_id: dict[int, dict[str, int]],
+    **values: Any,
+) -> dict[str, Any]:
+    row: dict[str, Any] = {"id": _hex_id(arbitration_id), **values}
+    j1939 = fields_by_id.get(arbitration_id)
+    if j1939 is not None:
+        row["j1939"] = j1939
+    return row
+
+
 def _filtered_frames(
     path: Path,
     *,
@@ -308,15 +331,12 @@ def _filtered_frames(
     time_end: float | None,
 ) -> Iterator[Frame]:
     try:
-        frames = capkit.read(path)
-        for frame in frames:
-            if ids is not None and frame.arbitration_id not in ids:
-                continue
-            if time_start is not None and frame.timestamp < time_start:
-                continue
-            if time_end is not None and frame.timestamp > time_end:
-                continue
-            yield frame
+        yield from capkit.filter_frames(
+            capkit.read(path),
+            arbitration_ids=ids,
+            start_time=time_start,
+            end_time=time_end,
+        )
     except ValueError as exc:
         raise _unparseable_log(path, exc) from None
     except Exception as exc:
@@ -572,11 +592,13 @@ def log_stats(log_path: str, top: int = 20) -> dict[str, Any]:
     counts: Counter[int] = Counter()
     previous: dict[int, float] = {}
     deltas: dict[int, list[float]] = defaultdict(list)
+    j1939_by_id: dict[int, dict[str, int]] = {}
     first_timestamp: float | None = None
     last_timestamp: float | None = None
 
     for frame in _filtered_frames(path, ids=None, time_start=None, time_end=None):
         counts[frame.arbitration_id] += 1
+        _observe_j1939(frame, j1939_by_id)
         if first_timestamp is None or frame.timestamp < first_timestamp:
             first_timestamp = frame.timestamp
         if last_timestamp is None or frame.timestamp > last_timestamp:
@@ -588,11 +610,12 @@ def log_stats(log_path: str, top: int = 20) -> dict[str, Any]:
 
     ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
     top_ids = [
-        {
-            "id": _hex_id(arbitration_id),
-            "count": count,
-            "median_cycle_time": median(deltas[arbitration_id]) if deltas[arbitration_id] else None,
-        }
+        _observed_id_row(
+            arbitration_id,
+            j1939_by_id,
+            count=count,
+            median_cycle_time=median(deltas[arbitration_id]) if deltas[arbitration_id] else None,
+        )
         for arbitration_id, count in ranked[:effective_top]
     ]
     frame_count = sum(counts.values())
@@ -632,6 +655,7 @@ def log_signal_inventory(
     matched_states: dict[int, dict[str, Any]] = {}
     ambiguity_states: dict[tuple[int, tuple[int, ...]], int] = Counter()
     message_states: dict[int, dict[str, Any]] = {}
+    j1939_by_id: dict[int, dict[str, int]] = {}
     used_modes: set[Literal["exact", "j1939"]] = set()
     first_timestamp: float | None = None
     last_timestamp: float | None = None
@@ -641,6 +665,7 @@ def log_signal_inventory(
         frames = _filtered_frames(log_source, ids=None, time_start=None, time_end=None)
         for frame in frames:
             raw_counts[frame.arbitration_id] += 1
+            _observe_j1939(frame, j1939_by_id)
             if first_timestamp is None or frame.timestamp < first_timestamp:
                 first_timestamp = frame.timestamp
             if last_timestamp is None or frame.timestamp > last_timestamp:
@@ -725,20 +750,21 @@ def log_signal_inventory(
         raise ValueError(f"Cannot inventory log file '{log_source}': {exc}") from None
 
     unique_rows = [
-        {"id": _hex_id(arbitration_id), "frame_count": count}
+        _observed_id_row(arbitration_id, j1939_by_id, frame_count=count)
         for arbitration_id, count in sorted(raw_counts.items())[:MAX_INVENTORY_IDS]
     ]
     unique_ids_truncated = len(raw_counts) > MAX_INVENTORY_IDS
 
     matched_items = sorted(matched_states.items())
     matched_rows = [
-        {
-            "id": _hex_id(incoming_id),
-            "frame_count": state["frame_count"],
-            "message_id": _hex_id(state["message_id"]),
-            "message": db.messages[state["message_id"]].name,
-            "match_mode": state["match_mode"],
-        }
+        _observed_id_row(
+            incoming_id,
+            j1939_by_id,
+            frame_count=state["frame_count"],
+            message_id=_hex_id(state["message_id"]),
+            message=db.messages[state["message_id"]].name,
+            match_mode=state["match_mode"],
+        )
         for incoming_id, state in matched_items[:MAX_INVENTORY_IDS]
     ]
     matched_ids_truncated = len(matched_items) > MAX_INVENTORY_IDS
@@ -749,7 +775,7 @@ def log_signal_inventory(
         if count > classified_counts[arbitration_id]
     ]
     unmatched_rows = [
-        {"id": _hex_id(arbitration_id), "frame_count": count}
+        _observed_id_row(arbitration_id, j1939_by_id, frame_count=count)
         for arbitration_id, count in unmatched_items[:MAX_INVENTORY_IDS]
     ]
     unmatched_ids_truncated = len(unmatched_items) > MAX_INVENTORY_IDS
@@ -762,13 +788,14 @@ def log_signal_inventory(
         candidates_truncated = len(candidate_ids) > MAX_INVENTORY_MESSAGES
         ambiguity_details_truncated = ambiguity_details_truncated or candidates_truncated
         ambiguity_rows.append(
-            {
-                "id": _hex_id(incoming_id),
-                "frame_count": frame_count,
-                "candidate_count": len(candidate_ids),
-                "returned_candidates": len(bounded_candidates),
-                "candidates_truncated": candidates_truncated,
-                "candidates": [
+            _observed_id_row(
+                incoming_id,
+                j1939_by_id,
+                frame_count=frame_count,
+                candidate_count=len(candidate_ids),
+                returned_candidates=len(bounded_candidates),
+                candidates_truncated=candidates_truncated,
+                candidates=[
                     {
                         "message_id": _hex_id(candidate_id),
                         "message": db.messages[candidate_id].name,
@@ -776,7 +803,7 @@ def log_signal_inventory(
                     }
                     for candidate_id in bounded_candidates
                 ],
-            }
+            )
         )
     ambiguities_truncated = len(ambiguity_items) > MAX_INVENTORY_IDS
 
@@ -849,11 +876,12 @@ def log_signal_inventory(
                 "returned_source_ids": len(bounded_sources),
                 "source_ids_truncated": source_ids_truncated,
                 "source_ids": [
-                    {
-                        "id": _hex_id(incoming_id),
-                        "frame_count": count,
-                        "match_mode": state["source_modes"][incoming_id],
-                    }
+                    _observed_id_row(
+                        incoming_id,
+                        j1939_by_id,
+                        frame_count=count,
+                        match_mode=state["source_modes"][incoming_id],
+                    )
                     for incoming_id, count in bounded_sources
                 ],
                 "defined_signal_count": len(message.signals),
