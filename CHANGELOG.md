@@ -3,9 +3,25 @@
 All notable changes to canforge-mcp are documented here.
 
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Versioning will follow [Semantic Versioning](https://semver.org/) from 1.0.0 onward.
+Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
+
+## [Unreleased]
+
+### Added
+
+- Added `log_signal_inventory` for bounded, one-pass DBC/log analysis with
+  exact and J1939 matching, explicit ambiguities, observed signals and
+  multiplexer values, optional decoded values, lenient parse diagnostics, and
+  per-message decode-safety reporting.
+
+### Changed
+
+- Bounded `decode_log` signal-decoding work to the returned frame limit while
+  retaining exact `total` counts from matching DBC arbitration IDs.
+- Raised the supported capkit runtime range from `>=0.2,<0.3` to
+  `>=0.3,<0.4`.
 
 ## [0.1.0] — 2026-07-16
 

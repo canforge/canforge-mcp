@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from canforge_mcp import tools
+from canforge_mcp.errors import UnparseableInputError
 
 
 def test_dbc_info_counts_and_nodes(sample_dbc: Path) -> None:
@@ -207,8 +208,20 @@ def test_missing_directory_and_garbage_dbc_errors(tmp_path: Path) -> None:
 
     garbage = tmp_path / "garbage.dbc"
     garbage.write_text("not a dbc", encoding="utf-8")
-    with pytest.raises(ValueError, match="Cannot load DBC file"):
+    with pytest.raises(UnparseableInputError, match="Cannot parse DBC file") as captured:
         tools.dbc_info(str(garbage))
+
+    error = captured.value
+    assert error.to_payload() == {
+        "code": "unparseable_dbc",
+        "message": error.message,
+        "retryable": False,
+        "recommended_action": (
+            "Report this failure and request a valid DBC export; "
+            "do not rewrite, clean, convert, or copy the input."
+        ),
+    }
+    assert str(garbage.resolve()) in error.message
 
 
 @pytest.mark.parametrize("value", ["", "xyz", "0xxyz", -1])

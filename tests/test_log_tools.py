@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from canforge_mcp import tools
+from canforge_mcp.errors import UnparseableInputError
 
 
 def _write_candump(path: Path, frames: list[tuple[float, int, bytes]]) -> Path:
@@ -75,8 +76,11 @@ def test_probe_log_failure_lists_formats(tmp_path: Path) -> None:
     garbage = tmp_path / "capture.bin"
     garbage.write_text("not a CAN log", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"Available formats: .*candump"):
+    with pytest.raises(UnparseableInputError, match=r"Available formats: .*candump") as captured:
         tools.probe_log(str(garbage))
+
+    assert captured.value.code == "unparseable_log"
+    assert captured.value.retryable is False
 
 
 def test_log_stats_counts_span_and_cycle_time(candump_log: Path) -> None:
@@ -283,8 +287,23 @@ SG_MUL_VAL_ 100 Kept Kept 0-1;
     message = result["messages"][0]
     assert message["decode_safe"] is False
     assert [signal["name"] for signal in message["signals"]] == ["Kept"]
-    with pytest.raises(ValueError, match="Cannot load DBC file"):
+    with pytest.raises(UnparseableInputError, match="Cannot parse DBC file") as captured:
         tools.dbc_info(str(dbc))
+    assert captured.value.code == "unparseable_dbc"
+
+
+def test_log_signal_inventory_maps_terminal_lenient_dbc_parse_failure(
+    tmp_path: Path,
+    candump_log: Path,
+) -> None:
+    garbage = tmp_path / "garbage.dbc"
+    garbage.write_text("not a dbc", encoding="utf-8")
+
+    with pytest.raises(UnparseableInputError) as captured:
+        tools.log_signal_inventory(str(garbage), str(candump_log))
+
+    assert captured.value.code == "unparseable_dbc"
+    assert captured.value.retryable is False
 
 
 def test_log_signal_inventory_parses_and_scans_only_once(
@@ -458,8 +477,49 @@ def test_read_frames_maps_unknown_format_error(tmp_path: Path) -> None:
     garbage = tmp_path / "garbage.bin"
     garbage.write_text("not a log\n", encoding="utf-8")
 
-    with pytest.raises(ValueError, match="Cannot read log file"):
+    with pytest.raises(UnparseableInputError, match="Cannot parse log file") as captured:
         tools.read_frames(str(garbage))
+
+    assert captured.value.to_payload() == {
+        "code": "unparseable_log",
+        "message": captured.value.message,
+        "retryable": False,
+        "recommended_action": (
+            "Report this failure and request a valid CAN log export; "
+            "do not rewrite, clean, convert, or copy the input."
+        ),
+    }
+
+
+def test_read_frames_maps_lazy_malformed_record_error(tmp_path: Path) -> None:
+    malformed = tmp_path / "malformed.txt"
+    malformed.write_text(
+        "Chn Identifier Flg   DLC  D0...1...2...3...4...5...6..D7       Time     Dir\n"
+        " 0    123             1  01       1.000000 R\n"
+        " 0    123             2  01       2.000000 R\n",
+        encoding="ascii",
+    )
+
+    with pytest.raises(UnparseableInputError, match=r"DLC 2 declares 2 data bytes, got 1") as captured:
+        tools.read_frames(str(malformed))
+
+    assert captured.value.code == "unparseable_log"
+    assert captured.value.retryable is False
+
+
+def test_reader_registry_failure_is_not_classified_as_unparseable(
+    candump_log: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_read(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("reader plugin failed")
+
+    monkeypatch.setattr(tools.capkit, "read", fail_read)
+
+    with pytest.raises(ValueError, match="Cannot read log file.*reader plugin failed") as captured:
+        tools.read_frames(str(candump_log))
+
+    assert not isinstance(captured.value, UnparseableInputError)
 
 
 def test_decode_log_composes_capkit_and_dbckit(sample_dbc: Path, candump_log: Path) -> None:

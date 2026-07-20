@@ -15,6 +15,8 @@ import dbckit
 from capkit import Frame
 from dbckit import Database, FrameLike, Message, Signal
 
+from canforge_mcp.errors import UnparseableInputError
+
 DEFAULT_LIST_LIMIT = 50
 DEFAULT_FRAME_LIMIT = 100
 DEFAULT_POINT_LIMIT = 500
@@ -35,6 +37,38 @@ MAX_INVENTORY_MUX_VALUES = 50
 
 DbcParseMode = Literal["raise", "skip"]
 InventoryMatchMode = Literal["exact", "j1939", "auto"]
+
+DBC_RECOMMENDED_ACTION = (
+    "Report this failure and request a valid DBC export; do not rewrite, clean, convert, or copy the input."
+)
+LOG_RECOMMENDED_ACTION = (
+    "Report this failure and request a valid CAN log export; do not rewrite, clean, convert, or copy the input."
+)
+
+
+def _exception_summary(exc: Exception) -> str:
+    detail = str(exc).strip().splitlines()
+    return detail[0] if detail else exc.__class__.__name__
+
+
+def _unparseable_dbc(path: Path, exc: Exception) -> UnparseableInputError:
+    return UnparseableInputError(
+        code="unparseable_dbc",
+        message=f"Cannot parse DBC file '{path}': {_exception_summary(exc)}",
+        recommended_action=DBC_RECOMMENDED_ACTION,
+    )
+
+
+def _unparseable_log(path: Path, exc: Exception, *, formats: list[str] | None = None) -> UnparseableInputError:
+    message = f"Cannot parse log file '{path}': {_exception_summary(exc)}"
+    if formats is not None and "Available formats:" not in message:
+        available = ", ".join(formats) or "(none)"
+        message = f"{message} Available formats: {available}."
+    return UnparseableInputError(
+        code="unparseable_log",
+        message=message,
+        recommended_action=LOG_RECOMMENDED_ACTION,
+    )
 
 
 def _effective_limit(value: int, *, maximum: int, name: str) -> int:
@@ -68,8 +102,10 @@ def _database(path: str, *, on_unsupported: DbcParseMode = "raise") -> tuple[Pat
     source, mtime_ns = _checked_path(path, kind="DBC")
     try:
         return source, _load_dbc_cached(str(source), mtime_ns, on_unsupported)
-    except Exception as exc:
+    except OSError as exc:
         raise ValueError(f"Cannot load DBC file '{source}': {exc}") from None
+    except Exception as exc:
+        raise _unparseable_dbc(source, exc) from None
 
 
 def clear_dbc_cache() -> None:
@@ -281,6 +317,8 @@ def _filtered_frames(
             if time_end is not None and frame.timestamp > time_end:
                 continue
             yield frame
+    except ValueError as exc:
+        raise _unparseable_log(path, exc) from None
     except Exception as exc:
         raise ValueError(f"Cannot read log file '{path}': {exc}") from None
 
@@ -500,6 +538,12 @@ def diff_dbcs(dbc_a_path: str, dbc_b_path: str) -> dict[str, Any]:
 def _probe_log_meta(path: Path) -> capkit.LogMeta:
     try:
         return capkit.probe(path)
+    except ValueError as exc:
+        try:
+            formats = capkit.available_formats()
+        except Exception:
+            formats = []
+        raise _unparseable_log(path, exc, formats=formats) from None
     except Exception as exc:
         try:
             formats = capkit.available_formats()

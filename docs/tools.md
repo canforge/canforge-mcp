@@ -119,7 +119,33 @@ and select evenly spaced indexes between them. `max_points` is capped at 2,000.
 
 ## Errors
 
-Missing paths, unreadable files, parse errors, unknown formats, invalid IDs,
-unknown messages or signals, invalid hexadecimal payloads, and reversed time
-windows are surfaced as MCP tool errors. Error text is concise and does not
-include Python stack traces.
+Genuinely unparseable inputs return an MCP tool result with `isError: true` and
+this `structuredContent` shape:
+
+```json
+{
+  "code": "unparseable_dbc",
+  "message": "Cannot parse DBC file '...': ...",
+  "retryable": false,
+  "recommended_action": "Report this failure and request a valid DBC export; do not rewrite, clean, convert, or copy the input."
+}
+```
+
+The stable error codes are:
+
+- `unparseable_dbc` — the DBC cannot be decoded or parsed, including when the
+  lenient inventory parser cannot safely isolate the invalid construct;
+- `unparseable_log` — capkit cannot detect or parse the log format/header, or a
+  malformed frame record is encountered during its lazy scan.
+
+Clients should report these failures, relay `recommended_action`, and stop.
+Retrying the same input or attempting to rewrite, clean, convert, or copy it is
+not useful. Text-only clients receive the same information in a concise text
+fallback without a Python traceback.
+
+Missing paths, directories, unreadable files, invalid arguments, IDs, filters,
+or time windows, unknown messages or signals, invalid frame payloads, decoder
+failures after successful parsing, and reader-plugin/registry failures retain
+their existing concise MCP tool errors and are not labeled non-retryable.
+Recoverable lenient DBC parse diagnostics remain successful
+`log_signal_inventory` results.

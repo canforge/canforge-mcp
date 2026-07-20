@@ -84,3 +84,36 @@ async def test_stdio_tool_error_is_useful_without_traceback(tmp_path: Path) -> N
     assert isinstance(result.content[0], TextContent)
     assert "DBC file not found" in result.content[0].text
     assert "Traceback" not in result.content[0].text
+    assert result.structuredContent is None
+
+
+@pytest.mark.asyncio
+async def test_stdio_unparseable_dbc_returns_structured_terminal_error(tmp_path: Path) -> None:
+    garbage = tmp_path / "garbage.dbc"
+    garbage.write_text("not a dbc", encoding="utf-8")
+    executable = Path(sys.executable).with_name("canforge-mcp")
+    params = StdioServerParameters(command=str(executable), args=[])
+
+    async with stdio_client(params) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            result = await session.call_tool("dbc_info", {"dbc_path": str(garbage)})
+
+    assert result.isError is True
+    assert result.structuredContent is not None
+    assert result.structuredContent == {
+        "code": "unparseable_dbc",
+        "message": result.structuredContent["message"],
+        "retryable": False,
+        "recommended_action": (
+            "Report this failure and request a valid DBC export; "
+            "do not rewrite, clean, convert, or copy the input."
+        ),
+    }
+    assert result.structuredContent["message"].startswith("Cannot parse DBC file")
+    assert result.content
+    assert isinstance(result.content[0], TextContent)
+    assert "unparseable_dbc" in result.content[0].text
+    assert "retryable: false" in result.content[0].text
+    assert "Recommended action:" in result.content[0].text
+    assert "Traceback" not in result.content[0].text
