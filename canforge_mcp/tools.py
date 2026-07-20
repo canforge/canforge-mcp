@@ -929,27 +929,31 @@ def decode_log(
     _, db = _database(dbc_path)
     path, _ = _checked_path(log_path, kind="Log")
     _validate_time_window(time_start, time_end)
-    ids = _combined_filter(db, messages, id_filter)
+    requested_ids = _combined_filter(db, messages, id_filter)
+    dbc_ids = set(db.messages)
+    ids = dbc_ids if requested_ids is None else dbc_ids & requested_ids
     effective_limit = _effective_limit(limit, maximum=MAX_FRAME_LIMIT, name="limit")
-    raw_frames = _filtered_frames(path, ids=ids, time_start=time_start, time_end=time_end)
+    raw_frames: list[Frame] = []
     rows: list[dict[str, Any]] = []
     total = 0
     try:
-        decoded_frames = dbckit.decode_frames(db, cast(Iterable[FrameLike], raw_frames))
-        for frame in decoded_frames:
+        for raw_frame in _filtered_frames(path, ids=ids, time_start=time_start, time_end=time_end):
             total += 1
-            if len(rows) >= effective_limit:
-                continue
-            message = db.messages[frame.arbitration_id]
-            signal_items = list(frame.signals.items())
+            if len(raw_frames) < effective_limit:
+                raw_frames.append(raw_frame)
+
+        decoded_frames = dbckit.decode_frames(db, cast(Iterable[FrameLike], raw_frames))
+        for decoded_frame in decoded_frames:
+            message = db.messages[decoded_frame.arbitration_id]
+            signal_items = list(decoded_frame.signals.items())
             bounded_signals = dict(signal_items[:MAX_SIGNALS_PER_MESSAGE])
             rows.append(
                 {
-                    "timestamp": frame.timestamp,
-                    "id": _hex_id(frame.arbitration_id),
+                    "timestamp": decoded_frame.timestamp,
+                    "id": _hex_id(decoded_frame.arbitration_id),
                     "message": message.name,
-                    "data_hex": frame.raw.hex().upper(),
-                    "channel": frame.channel,
+                    "data_hex": decoded_frame.raw.hex().upper(),
+                    "channel": decoded_frame.channel,
                     "signals": _json_value(bounded_signals),
                     "signal_count": len(signal_items),
                     "signals_truncated": len(signal_items) > MAX_SIGNALS_PER_MESSAGE,

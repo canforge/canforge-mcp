@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 
 import pytest
@@ -473,6 +474,31 @@ def test_decode_log_composes_capkit_and_dbckit(sample_dbc: Path, candump_log: Pa
     assert first["signals"]["CoolantTemp"] == -8.0
     assert first["signal_count"] == 3
     assert first["signals_truncated"] is False
+
+
+def test_decode_log_decodes_only_bounded_sample(
+    sample_dbc: Path,
+    candump_log: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_decode_frames = tools.dbckit.decode_frames
+    decoded_inputs: list[tools.FrameLike] = []
+
+    def tracking_decode_frames(
+        database: tools.Database,
+        frames: Iterable[tools.FrameLike],
+    ) -> object:
+        sample = list(frames)
+        decoded_inputs.extend(sample)
+        return real_decode_frames(database, sample)
+
+    monkeypatch.setattr(tools.dbckit, "decode_frames", tracking_decode_frames)
+
+    result = tools.decode_log(str(sample_dbc), str(candump_log), limit=2)
+
+    assert result["total"] == 59
+    assert result["returned"] == 2
+    assert len(decoded_inputs) == 2
 
 
 def test_decode_log_filters_by_name_id_and_intersection(sample_dbc: Path, candump_log: Path) -> None:
