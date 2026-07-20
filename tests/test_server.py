@@ -51,7 +51,7 @@ async def test_installed_console_script_stdio_round_trip(sample_dbc: Path, candu
 
     async with stdio_client(params) as (read, write):
         async with ClientSession(read, write) as session:
-            await session.initialize()
+            initialized = await session.initialize()
             listed = await session.list_tools()
             result = await session.call_tool("dbc_info", {"dbc_path": str(sample_dbc)})
             inventory = await session.call_tool(
@@ -59,6 +59,17 @@ async def test_installed_console_script_stdio_round_trip(sample_dbc: Path, candu
                 {"dbc_path": str(sample_dbc), "log_path": str(candump_log)},
             )
 
+    assert initialized.instructions is not None
+    assert "one bounded log_signal_inventory call first" in initialized.instructions
+    assert "before any lower-level tool calls" in initialized.instructions
+    assert "never rewrite, clean, normalize, or copy" in initialized.instructions
+    assert "parse_diagnostics" in initialized.instructions
+    assert "decode_safe is false" in initialized.instructions
+    assert "continue reporting results from safe messages" in initialized.instructions
+    assert "retryable: false" in initialized.instructions
+    assert "code, message, and recommended_action" in initialized.instructions
+    assert "then stop" in initialized.instructions
+    assert "do not fall back to shell commands or ad hoc Python" in initialized.instructions
     assert len(listed.tools) == 13
     assert result.isError is False
     assert result.structuredContent is not None

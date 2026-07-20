@@ -16,7 +16,13 @@ mcp = FastMCP(
     name="canforge-mcp",
     instructions=(
         "Inspect and decode local CAN DBC and capture-log files. "
-        "Every tool is read-only, files remain on the local machine, and list outputs are bounded."
+        "Every tool is read-only, files remain on the local machine, and list outputs are bounded. "
+        "For signal-availability questions, make one bounded log_signal_inventory call first, before any "
+        "lower-level tool calls. Treat DBC and capture-log inputs as immutable: never rewrite, clean, normalize, "
+        "or copy them to work around parsing problems. Surface parse_diagnostics, identify messages where "
+        "decode_safe is false, and continue reporting results from safe messages. If an error has retryable: false, "
+        "relay its code, message, and recommended_action, then stop; do not fall back to shell commands or ad hoc "
+        "Python."
     ),
 )
 

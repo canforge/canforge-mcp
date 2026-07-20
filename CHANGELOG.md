@@ -18,6 +18,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Strengthened MCP initialization guidance for signal-availability workflows:
+  call `log_signal_inventory` first, preserve input files, continue reporting
+  decode-safe messages, and stop after structured non-retryable errors instead
+  of falling back to shell commands or ad hoc Python.
 - Bounded `decode_log` signal-decoding work to the returned frame limit while
   retaining exact `total` counts from matching DBC arbitration IDs.
 - Raised the supported capkit runtime range from `>=0.2,<0.3` to
