@@ -22,7 +22,7 @@ async def test_server_registers_all_tools_with_read_only_annotations() -> None:
     listed = await mcp.list_tools()
 
     assert [tool.name for tool in listed] == [tool.__name__ for tool in TOOLS]
-    assert len(listed) == 12
+    assert len(listed) == 13
     for tool in listed:
         assert tool.description
         assert tool.inputSchema["type"] == "object"
@@ -44,7 +44,7 @@ def test_main_runs_stdio_only(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_installed_console_script_stdio_round_trip(sample_dbc: Path) -> None:
+async def test_installed_console_script_stdio_round_trip(sample_dbc: Path, candump_log: Path) -> None:
     executable = Path(sys.executable).with_name("canforge-mcp")
     assert executable.exists(), "editable install must expose the console script"
     params = StdioServerParameters(command=str(executable), args=[])
@@ -54,11 +54,19 @@ async def test_installed_console_script_stdio_round_trip(sample_dbc: Path) -> No
             await session.initialize()
             listed = await session.list_tools()
             result = await session.call_tool("dbc_info", {"dbc_path": str(sample_dbc)})
+            inventory = await session.call_tool(
+                "log_signal_inventory",
+                {"dbc_path": str(sample_dbc), "log_path": str(candump_log)},
+            )
 
-    assert len(listed.tools) == 12
+    assert len(listed.tools) == 13
     assert result.isError is False
     assert result.structuredContent is not None
     assert result.structuredContent["message_count"] == 3
+    assert inventory.isError is False
+    assert inventory.structuredContent is not None
+    assert inventory.structuredContent["frame_count"] == 300
+    assert inventory.structuredContent["matched_id_count"] == 1
 
 
 @pytest.mark.asyncio

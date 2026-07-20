@@ -24,6 +24,7 @@ instead of uploading captures or returning unbounded traces.
 | `diff_dbcs` | Added, removed, and changed messages and signals |
 | `probe_log` | Detect a log format and read header metadata |
 | `log_stats` | Frame count, span, ID counts, and median cycle times |
+| `log_signal_inventory` | One-pass inventory of DBC signals observed in a log |
 | `read_frames` | Bounded raw-frame samples with ID and time filters |
 | `decode_log` | Bounded decoded frames from a DBC and log |
 | `signal_timeseries` | Downsampled timestamp/value points for one signal |
@@ -121,7 +122,7 @@ filesystem paths; provide an accessible local path instead.
 
 ## Scope and Caveats
 
-- Supported capture formats come from capkit 0.2: Kvaser CanKing TXT, candump
+- Supported capture formats come from capkit 0.3: Kvaser CanKing TXT, candump
   text, and Vector ASC.
 - DBC support and validation behavior follow dbckit 1.x.
 - Timestamps are floats exactly as recorded by capkit; they are not rebased.
@@ -129,6 +130,9 @@ filesystem paths; provide an accessible local path instead.
 - `signal_timeseries` uses deterministic, evenly spaced index sampling when a
   series exceeds `max_points`; it is intended for inspection, not resampling or
   signal processing.
+- `log_signal_inventory` always loads the DBC leniently and reports parse
+  diagnostics and per-message decode safety. It scans the log body once;
+  `include_values=true` adds bounded distinct decoded values to the inventory.
 - Paths are resolved by the machine running the MCP server. A remote client's
   filesystem is not visible to a server running elsewhere.
 

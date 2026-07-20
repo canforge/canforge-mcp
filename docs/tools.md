@@ -71,6 +71,39 @@ an empty ID list matches no frames. `limit` is capped at 500.
 
 ## Composition tools
 
+### `log_signal_inventory(dbc_path, log_path, match_mode="auto", include_values=false)`
+
+Loads the DBC with dbckit's lenient `on_unsupported="skip"` mode, probes the
+capture format, and scans the log body once to answer which DBC signals are
+actually observed. Other DBC tools retain their existing strict parse behavior.
+
+`match_mode` accepts `exact`, `j1939`, or `auto` and is passed to dbckit. The
+result reports the requested mode, the actual `exact` or `j1939` mode for each
+matched log ID, and the set of modes used across the scan. Ambiguous J1939 PGN
+matches are returned explicitly and are never decoded by choosing a candidate.
+
+The response includes:
+
+- capture format, optional absolute capture start, frame count, first and last
+  timestamps, duration, and unique IDs with frame counts;
+- mutually exclusive matched, unmatched, and ambiguous ID groups;
+- matched messages with source log IDs, frame counts, decode safety, and only
+  signals observed in at least one decoded frame;
+- signal units, multiplex indicators, and DBC value labels;
+- observed raw selector, physical value, and optional label for multiplexers;
+- DBC-wide decode safety and ordered lenient-parse diagnostics.
+
+With `include_values=true`, each observed signal also includes distinct decoded
+values in first-observed order. Values are omitted by default.
+
+Unique, matched, unmatched, and per-message source ID lists are capped at 200.
+Messages, diagnostics, signals per message, and value labels per signal are
+capped at 200. Distinct decoded values and multiplexer selector values are
+capped at 50 per signal. Bounded collections report returned counts and
+truncation state, plus exact totals where they can be computed without retaining
+unbounded value sets. Top-level `truncated` is true when any part of the
+inventory is incomplete.
+
 ### `decode_log(dbc_path, log_path, messages?, id_filter?, time_start?, time_end?, limit=100)`
 
 Reads through capkit and decodes through dbckit. `messages` accepts names or IDs;

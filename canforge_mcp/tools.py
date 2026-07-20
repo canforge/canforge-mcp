@@ -8,7 +8,7 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 from statistics import median
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import capkit
 import dbckit
@@ -26,6 +26,15 @@ MAX_SIGNALS_PER_MESSAGE = 200
 MAX_DIFF_MESSAGES = 100
 MAX_DIFF_SIGNALS_PER_MESSAGE = 100
 MAX_NODE_NAMES = 200
+MAX_INVENTORY_IDS = 200
+MAX_INVENTORY_MESSAGES = 200
+MAX_INVENTORY_DIAGNOSTICS = 200
+MAX_INVENTORY_VALUES_PER_SIGNAL = 50
+MAX_INVENTORY_VALUE_LABELS_PER_SIGNAL = 200
+MAX_INVENTORY_MUX_VALUES = 50
+
+DbcParseMode = Literal["raise", "skip"]
+InventoryMatchMode = Literal["exact", "j1939", "auto"]
 
 
 def _effective_limit(value: int, *, maximum: int, name: str) -> int:
@@ -48,15 +57,17 @@ def _checked_path(path: str, *, kind: str) -> tuple[Path, int]:
 
 
 @lru_cache(maxsize=16)
-def _load_dbc_cached(path: str, mtime_ns: int) -> Database:
+def _load_dbc_cached(path: str, mtime_ns: int, on_unsupported: DbcParseMode = "raise") -> Database:
     del mtime_ns
+    if on_unsupported == "skip":
+        return dbckit.load(path, on_unsupported="skip")
     return dbckit.load(path)
 
 
-def _database(path: str) -> tuple[Path, Database]:
+def _database(path: str, *, on_unsupported: DbcParseMode = "raise") -> tuple[Path, Database]:
     source, mtime_ns = _checked_path(path, kind="DBC")
     try:
-        return source, _load_dbc_cached(str(source), mtime_ns)
+        return source, _load_dbc_cached(str(source), mtime_ns, on_unsupported)
     except Exception as exc:
         raise ValueError(f"Cannot load DBC file '{source}': {exc}") from None
 
@@ -157,6 +168,59 @@ def _json_value(value: Any) -> Any:
     if isinstance(value, (list, tuple)):
         return [_json_value(item) for item in value]
     return value
+
+
+def _append_distinct_value(
+    values: list[Any],
+    seen: set[tuple[str, str]],
+    value: Any,
+    *,
+    limit: int,
+) -> bool:
+    normalized = _json_value(value)
+    key = (type(normalized).__name__, repr(normalized))
+    if key in seen:
+        return False
+    if len(values) >= limit:
+        return True
+    seen.add(key)
+    values.append(normalized)
+    return False
+
+
+def _inventory_value_labels(signal: Signal) -> tuple[dict[str, str], int, bool]:
+    if signal.value_table is None:
+        return {}, 0, False
+    labels = sorted(signal.value_table.values.items())
+    bounded = labels[:MAX_INVENTORY_VALUE_LABELS_PER_SIGNAL]
+    return (
+        {str(value): label for value, label in bounded},
+        len(labels),
+        len(labels) > MAX_INVENTORY_VALUE_LABELS_PER_SIGNAL,
+    )
+
+
+def _actual_match_mode(
+    requested: InventoryMatchMode,
+    incoming_id: int,
+    message_id: int,
+) -> Literal["exact", "j1939"]:
+    if requested == "j1939":
+        return "j1939"
+    if requested == "exact":
+        return "exact"
+    return "exact" if incoming_id == message_id else "j1939"
+
+
+def _parse_diagnostic_row(diagnostic: Any) -> dict[str, Any]:
+    return {
+        "construct": diagnostic.construct,
+        "line": diagnostic.line,
+        "message_id": _hex_id(diagnostic.message_id) if diagnostic.message_id is not None else None,
+        "signal_name": diagnostic.signal_name,
+        "effect": diagnostic.effect,
+        "detail": diagnostic.detail,
+    }
 
 
 def _signal_changes(before: Signal, after: Signal) -> dict[str, dict[str, Any]]:
@@ -433,11 +497,9 @@ def diff_dbcs(dbc_a_path: str, dbc_b_path: str) -> dict[str, Any]:
     }
 
 
-def probe_log(log_path: str) -> dict[str, Any]:
-    """Detect a local CAN log's format and cheap header metadata without scanning all frames."""
-    path, _ = _checked_path(log_path, kind="Log")
+def _probe_log_meta(path: Path) -> capkit.LogMeta:
     try:
-        meta = capkit.probe(path)
+        return capkit.probe(path)
     except Exception as exc:
         try:
             formats = capkit.available_formats()
@@ -445,6 +507,12 @@ def probe_log(log_path: str) -> dict[str, Any]:
             formats = []
         available = ", ".join(formats) or "(none)"
         raise ValueError(f"Cannot probe log file '{path}': {exc} Available formats: {available}") from None
+
+
+def probe_log(log_path: str) -> dict[str, Any]:
+    """Detect a local CAN log's format and cheap header metadata without scanning all frames."""
+    path, _ = _checked_path(log_path, kind="Log")
+    meta = _probe_log_meta(path)
     return {
         "path": str(path),
         "format": meta.format,
@@ -498,6 +566,326 @@ def log_stats(log_path: str, top: int = 20) -> dict[str, Any]:
         "truncated": len(counts) > effective_top,
         "top": effective_top,
         "top_ids": top_ids,
+    }
+
+
+def log_signal_inventory(
+    dbc_path: str,
+    log_path: str,
+    match_mode: InventoryMatchMode = "auto",
+    include_values: bool = False,
+) -> dict[str, Any]:
+    """Inventory the DBC signals observed in one full, one-pass scan of a local CAN log."""
+    if match_mode not in ("exact", "j1939", "auto"):
+        raise ValueError("match_mode must be 'exact', 'j1939', or 'auto'.")
+
+    dbc_source, db = _database(dbc_path, on_unsupported="skip")
+    log_source, _ = _checked_path(log_path, kind="Log")
+    meta = _probe_log_meta(log_source)
+
+    raw_counts: Counter[int] = Counter()
+    classified_counts: Counter[int] = Counter()
+    matched_states: dict[int, dict[str, Any]] = {}
+    ambiguity_states: dict[tuple[int, tuple[int, ...]], int] = Counter()
+    message_states: dict[int, dict[str, Any]] = {}
+    used_modes: set[Literal["exact", "j1939"]] = set()
+    first_timestamp: float | None = None
+    last_timestamp: float | None = None
+
+    def counted_frames() -> Iterator[Frame]:
+        nonlocal first_timestamp, last_timestamp
+        frames = _filtered_frames(log_source, ids=None, time_start=None, time_end=None)
+        for frame in frames:
+            raw_counts[frame.arbitration_id] += 1
+            if first_timestamp is None or frame.timestamp < first_timestamp:
+                first_timestamp = frame.timestamp
+            if last_timestamp is None or frame.timestamp > last_timestamp:
+                last_timestamp = frame.timestamp
+            yield frame
+
+    try:
+        decoded_frames = dbckit.decode_frames(
+            db,
+            cast(Iterable[FrameLike], counted_frames()),
+            match=cast(dbckit.FrameMatchMode, match_mode),
+        )
+        for decoded in decoded_frames:
+            incoming_id = decoded.arbitration_id
+            classified_counts[incoming_id] += 1
+            if isinstance(decoded, dbckit.AmbiguousFrameMatch):
+                candidate_ids = tuple(decoded.candidate_message_ids)
+                ambiguity_states[(incoming_id, candidate_ids)] += 1
+                used_modes.add("j1939")
+                continue
+
+            message_id = decoded.message_arbitration_id
+            actual_mode = _actual_match_mode(match_mode, incoming_id, message_id)
+            used_modes.add(actual_mode)
+            matched = matched_states.setdefault(
+                incoming_id,
+                {
+                    "message_id": message_id,
+                    "match_mode": actual_mode,
+                    "frame_count": 0,
+                },
+            )
+            matched["frame_count"] += 1
+
+            state = message_states.setdefault(
+                message_id,
+                {
+                    "frame_count": 0,
+                    "source_counts": Counter(),
+                    "source_modes": {},
+                    "observed_signals": set(),
+                    "values": defaultdict(list),
+                    "value_keys": defaultdict(set),
+                    "values_truncated": set(),
+                    "mux_values": defaultdict(list),
+                    "mux_value_keys": defaultdict(set),
+                    "mux_values_truncated": set(),
+                },
+            )
+            state["frame_count"] += 1
+            state["source_counts"][incoming_id] += 1
+            state["source_modes"][incoming_id] = actual_mode
+
+            message = db.messages[message_id]
+            for signal_name, value in decoded.signals.items():
+                state["observed_signals"].add(signal_name)
+                signal = message.signals.get(signal_name)
+                if signal is None:
+                    continue
+                if include_values and _append_distinct_value(
+                    state["values"][signal_name],
+                    state["value_keys"][signal_name],
+                    value,
+                    limit=MAX_INVENTORY_VALUES_PER_SIGNAL,
+                ):
+                    state["values_truncated"].add(signal_name)
+                if signal.multiplex_indicator == "M":
+                    physical = signal.decode(decoded.raw)
+                    selector = int(round((physical - signal.offset) / signal.factor))
+                    label = signal.value_table.values.get(selector) if signal.value_table is not None else None
+                    mux_value = {"selector": selector, "value": physical, "label": label}
+                    if _append_distinct_value(
+                        state["mux_values"][signal_name],
+                        state["mux_value_keys"][signal_name],
+                        mux_value,
+                        limit=MAX_INVENTORY_MUX_VALUES,
+                    ):
+                        state["mux_values_truncated"].add(signal_name)
+    except ValueError:
+        raise
+    except Exception as exc:
+        raise ValueError(f"Cannot inventory log file '{log_source}': {exc}") from None
+
+    unique_rows = [
+        {"id": _hex_id(arbitration_id), "frame_count": count}
+        for arbitration_id, count in sorted(raw_counts.items())[:MAX_INVENTORY_IDS]
+    ]
+    unique_ids_truncated = len(raw_counts) > MAX_INVENTORY_IDS
+
+    matched_items = sorted(matched_states.items())
+    matched_rows = [
+        {
+            "id": _hex_id(incoming_id),
+            "frame_count": state["frame_count"],
+            "message_id": _hex_id(state["message_id"]),
+            "message": db.messages[state["message_id"]].name,
+            "match_mode": state["match_mode"],
+        }
+        for incoming_id, state in matched_items[:MAX_INVENTORY_IDS]
+    ]
+    matched_ids_truncated = len(matched_items) > MAX_INVENTORY_IDS
+
+    unmatched_items = [
+        (arbitration_id, count - classified_counts[arbitration_id])
+        for arbitration_id, count in sorted(raw_counts.items())
+        if count > classified_counts[arbitration_id]
+    ]
+    unmatched_rows = [
+        {"id": _hex_id(arbitration_id), "frame_count": count}
+        for arbitration_id, count in unmatched_items[:MAX_INVENTORY_IDS]
+    ]
+    unmatched_ids_truncated = len(unmatched_items) > MAX_INVENTORY_IDS
+
+    ambiguity_items = sorted(ambiguity_states.items(), key=lambda item: (item[0][0], item[0][1]))
+    ambiguity_rows: list[dict[str, Any]] = []
+    ambiguity_details_truncated = False
+    for (incoming_id, candidate_ids), frame_count in ambiguity_items[:MAX_INVENTORY_IDS]:
+        bounded_candidates = candidate_ids[:MAX_INVENTORY_MESSAGES]
+        candidates_truncated = len(candidate_ids) > MAX_INVENTORY_MESSAGES
+        ambiguity_details_truncated = ambiguity_details_truncated or candidates_truncated
+        ambiguity_rows.append(
+            {
+                "id": _hex_id(incoming_id),
+                "frame_count": frame_count,
+                "candidate_count": len(candidate_ids),
+                "returned_candidates": len(bounded_candidates),
+                "candidates_truncated": candidates_truncated,
+                "candidates": [
+                    {
+                        "message_id": _hex_id(candidate_id),
+                        "message": db.messages[candidate_id].name,
+                        "decode_safe": db.message_decode_safe(candidate_id),
+                    }
+                    for candidate_id in bounded_candidates
+                ],
+            }
+        )
+    ambiguities_truncated = len(ambiguity_items) > MAX_INVENTORY_IDS
+
+    message_items = sorted(message_states.items())
+    message_rows: list[dict[str, Any]] = []
+    message_details_truncated = False
+    for message_id, state in message_items[:MAX_INVENTORY_MESSAGES]:
+        message = db.messages[message_id]
+        observed_names = [name for name in message.signals if name in state["observed_signals"]]
+        bounded_names = observed_names[:MAX_SIGNALS_PER_MESSAGE]
+        signals_truncated = len(observed_names) > MAX_SIGNALS_PER_MESSAGE
+        signal_rows: list[dict[str, Any]] = []
+        for signal_name in bounded_names:
+            signal = message.signals[signal_name]
+            value_labels, value_label_count, value_labels_truncated = _inventory_value_labels(signal)
+            signal_row: dict[str, Any] = {
+                "name": signal.name,
+                "unit": signal.unit,
+                "multiplex": signal.multiplex_indicator,
+                "value_label_count": value_label_count,
+                "value_labels": value_labels,
+                "value_labels_truncated": value_labels_truncated,
+            }
+            if include_values:
+                observed_values = state["values"][signal_name]
+                signal_row.update(
+                    {
+                        "observed_values": observed_values,
+                        "returned_values": len(observed_values),
+                        "values_truncated": signal_name in state["values_truncated"],
+                    }
+                )
+            signal_rows.append(signal_row)
+            message_details_truncated = message_details_truncated or value_labels_truncated
+            if include_values:
+                message_details_truncated = (
+                    message_details_truncated or signal_name in state["values_truncated"]
+                )
+
+        source_items = sorted(state["source_counts"].items())
+        bounded_sources = source_items[:MAX_INVENTORY_IDS]
+        source_ids_truncated = len(source_items) > MAX_INVENTORY_IDS
+        multiplexer_items = list(state["mux_values"].items())
+        bounded_multiplexers = multiplexer_items[:MAX_SIGNALS_PER_MESSAGE]
+        multiplexers_truncated = len(multiplexer_items) > MAX_SIGNALS_PER_MESSAGE
+        multiplexer_rows: list[dict[str, Any]] = []
+        for signal_name, values in bounded_multiplexers:
+            multiplexer_rows.append(
+                {
+                    "signal": signal_name,
+                    "observed_values": values,
+                    "returned_values": len(values),
+                    "values_truncated": signal_name in state["mux_values_truncated"],
+                }
+            )
+        message_details_truncated = (
+            message_details_truncated
+            or signals_truncated
+            or source_ids_truncated
+            or multiplexers_truncated
+            or bool(state["mux_values_truncated"])
+        )
+        message_rows.append(
+            {
+                "message_id": _hex_id(message_id),
+                "message": message.name,
+                "frame_count": state["frame_count"],
+                "decode_safe": db.message_decode_safe(message_id),
+                "source_id_count": len(source_items),
+                "returned_source_ids": len(bounded_sources),
+                "source_ids_truncated": source_ids_truncated,
+                "source_ids": [
+                    {
+                        "id": _hex_id(incoming_id),
+                        "frame_count": count,
+                        "match_mode": state["source_modes"][incoming_id],
+                    }
+                    for incoming_id, count in bounded_sources
+                ],
+                "defined_signal_count": len(message.signals),
+                "observed_signal_count": len(observed_names),
+                "returned_signals": len(signal_rows),
+                "signals_truncated": signals_truncated,
+                "signals": signal_rows,
+                "multiplexer_count": len(multiplexer_items),
+                "returned_multiplexers": len(multiplexer_rows),
+                "multiplexers_truncated": multiplexers_truncated,
+                "multiplexers": multiplexer_rows,
+            }
+        )
+    messages_truncated = len(message_items) > MAX_INVENTORY_MESSAGES
+
+    diagnostic_total = len(db.parse_diagnostics)
+    diagnostic_rows = [
+        _parse_diagnostic_row(diagnostic)
+        for diagnostic in db.parse_diagnostics[:MAX_INVENTORY_DIAGNOSTICS]
+    ]
+    diagnostics_truncated = diagnostic_total > MAX_INVENTORY_DIAGNOSTICS
+
+    truncated = any(
+        (
+            unique_ids_truncated,
+            matched_ids_truncated,
+            unmatched_ids_truncated,
+            ambiguities_truncated,
+            ambiguity_details_truncated,
+            messages_truncated,
+            message_details_truncated,
+            diagnostics_truncated,
+        )
+    )
+    return {
+        "dbc_path": str(dbc_source),
+        "log_path": str(log_source),
+        "log_format": meta.format,
+        "capture_start_time": meta.start_time.isoformat() if meta.start_time is not None else None,
+        "frame_count": sum(raw_counts.values()),
+        "first_timestamp": first_timestamp,
+        "last_timestamp": last_timestamp,
+        "duration": (
+            last_timestamp - first_timestamp
+            if first_timestamp is not None and last_timestamp is not None
+            else None
+        ),
+        "unique_id_count": len(raw_counts),
+        "returned_unique_ids": len(unique_rows),
+        "unique_ids_truncated": unique_ids_truncated,
+        "unique_ids": unique_rows,
+        "match_mode_requested": match_mode,
+        "match_modes_used": [mode for mode in ("exact", "j1939") if mode in used_modes],
+        "matched_id_count": len(matched_items),
+        "returned_matched_ids": len(matched_rows),
+        "matched_ids_truncated": matched_ids_truncated,
+        "matched_ids": matched_rows,
+        "unmatched_id_count": len(unmatched_items),
+        "returned_unmatched_ids": len(unmatched_rows),
+        "unmatched_ids_truncated": unmatched_ids_truncated,
+        "unmatched_ids": unmatched_rows,
+        "ambiguity_count": len(ambiguity_items),
+        "ambiguous_frame_count": sum(ambiguity_states.values()),
+        "returned_ambiguities": len(ambiguity_rows),
+        "ambiguities_truncated": ambiguities_truncated or ambiguity_details_truncated,
+        "ambiguities": ambiguity_rows,
+        "message_count": len(message_items),
+        "returned_messages": len(message_rows),
+        "messages_truncated": messages_truncated or message_details_truncated,
+        "messages": message_rows,
+        "dbc_decode_safe": db.decode_safe,
+        "diagnostic_count": diagnostic_total,
+        "returned_diagnostics": len(diagnostic_rows),
+        "diagnostics_truncated": diagnostics_truncated,
+        "parse_diagnostics": diagnostic_rows,
+        "truncated": truncated,
     }
 
 
@@ -649,6 +1037,7 @@ TOOLS = (
     diff_dbcs,
     probe_log,
     log_stats,
+    log_signal_inventory,
     read_frames,
     decode_log,
     signal_timeseries,

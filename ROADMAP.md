@@ -7,7 +7,7 @@ The 0.1 line is deliberately local, read-only, bounded, and stdio-only.
 Driven by a real session: answering "which signals from this DBC occur in this log?"
 took a long chain of low-level calls plus shell workarounds. 0.2.0 makes it one call.
 
-- [ ] `log_signal_inventory(dbc_path, log_path, match_mode="auto", include_values=False)`:
+- [x] `log_signal_inventory(dbc_path, log_path, match_mode="auto", include_values=False)`:
   parse once, scan once. The DBC is always parsed leniently with diagnostics surfaced in
   the response (strict validation stays `validate_dbc`'s job); `match_mode`
   (`"exact" | "j1939" | "auto"`) passes through to dbckit. Response covers log

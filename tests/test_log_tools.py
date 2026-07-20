@@ -7,6 +7,59 @@ import pytest
 from canforge_mcp import tools
 
 
+def _write_candump(path: Path, frames: list[tuple[float, int, bytes]]) -> Path:
+    path.write_text(
+        "".join(
+            f"({timestamp:.6f}) can0 "
+            f"{arbitration_id:08X}#{data.hex().upper()} R\n"
+            if arbitration_id > 0x7FF
+            else f"({timestamp:.6f}) can0 {arbitration_id:03X}#{data.hex().upper()} R\n"
+            for timestamp, arbitration_id, data in frames
+        ),
+        encoding="ascii",
+    )
+    return path
+
+
+def _write_mux_dbc(path: Path) -> Path:
+    path.write_text(
+        '''VERSION ""
+NS_ :
+BS_ :
+BU_ : ECU
+BO_ 200 MuxMessage: 2 ECU
+ SG_ Selector M : 0|4@1+ (1,0) [0|15] "" ECU
+ SG_ Common : 4|4@1+ (1,0) [0|15] "count" ECU
+ SG_ First m0 : 8|8@1+ (1,0) [0|255] "A" ECU
+ SG_ Second m1 : 8|8@1+ (1,0) [0|255] "B" ECU
+VAL_ 200 Selector 0 "Zero" 1 "One" ;
+VAL_ 200 First 42 "Answer" ;
+''',
+        encoding="utf-8",
+    )
+    return path
+
+
+def _write_j1939_dbc(path: Path, *, ambiguous: bool = False) -> Path:
+    second = '''BO_ 2565866498 EngineVariant: 8 ECU
+ SG_ OtherValue : 0|8@1+ (1,0) [0|255] "" ECU
+BA_ "PGN" BO_ 418382850 61444;
+''' if ambiguous else ""
+    path.write_text(
+        f'''VERSION ""
+NS_ :
+BS_ :
+BU_ : ECU
+BA_DEF_ BO_ "PGN" INT 0 262143;
+BO_ 2565866497 EngineData: 8 ECU
+ SG_ Value : 0|8@1+ (1,0) [0|255] "" ECU
+BA_ "PGN" BO_ 418382849 61444;
+{second}''',
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_probe_log_detects_candump_and_vector_metadata(candump_log: Path, asc_log: Path) -> None:
     candump = tools.probe_log(str(candump_log))
     asc = tools.probe_log(str(asc_log))
@@ -62,6 +115,291 @@ def test_log_stats_empty_log_returns_empty_shape(tmp_path: Path) -> None:
     assert result["end_timestamp"] is None
     assert result["time_span"] is None
     assert result["top_ids"] == []
+
+
+def test_log_signal_inventory_summarizes_one_pass_exact_matches(
+    sample_dbc: Path,
+    candump_log: Path,
+) -> None:
+    result = tools.log_signal_inventory(str(sample_dbc), str(candump_log))
+
+    assert result["log_format"] == "candump"
+    assert result["frame_count"] == 300
+    assert result["duration"] == pytest.approx(0.5894511)
+    assert result["unique_id_count"] == 66
+    assert result["matched_id_count"] == 1
+    assert result["unmatched_id_count"] == 65
+    assert result["ambiguity_count"] == 0
+    assert result["match_mode_requested"] == "auto"
+    assert result["match_modes_used"] == ["exact"]
+    assert result["dbc_decode_safe"] is True
+    assert result["diagnostic_count"] == 0
+    assert result["truncated"] is False
+
+    matched = result["matched_ids"][0]
+    assert matched == {
+        "id": "0xCFBFFDB",
+        "frame_count": 59,
+        "message_id": "0xCFBFFDB",
+        "message": "EngineData",
+        "match_mode": "exact",
+    }
+    message = result["messages"][0]
+    assert message["frame_count"] == 59
+    assert message["decode_safe"] is True
+    assert message["observed_signal_count"] == 3
+    assert [signal["name"] for signal in message["signals"]] == ["EngineSpeed", "CoolantTemp", "Gear"]
+    gear = message["signals"][-1]
+    assert gear["value_labels"] == {"0": "Neutral", "1": "First", "2": "Second", "3": "Third"}
+    assert "observed_values" not in gear
+
+
+def test_log_signal_inventory_handles_supported_log_without_frames(sample_dbc: Path, tmp_path: Path) -> None:
+    empty = tmp_path / "empty.asc"
+    empty.write_text("base hex  timestamps absolute\n", encoding="ascii")
+
+    result = tools.log_signal_inventory(str(sample_dbc), str(empty))
+
+    assert result["log_format"] == "vector-asc"
+    assert result["frame_count"] == 0
+    assert result["first_timestamp"] is None
+    assert result["last_timestamp"] is None
+    assert result["duration"] is None
+    assert result["unique_ids"] == []
+    assert result["match_modes_used"] == []
+
+
+def test_log_signal_inventory_collects_values_and_mux_selectors(tmp_path: Path) -> None:
+    dbc = _write_mux_dbc(tmp_path / "mux.dbc")
+    log = _write_candump(
+        tmp_path / "mux.log",
+        [
+            (1.0, 200, bytes.fromhex("202A")),
+            (2.0, 200, bytes.fromhex("2107")),
+            (3.0, 200, bytes.fromhex("202A")),
+        ],
+    )
+
+    result = tools.log_signal_inventory(str(dbc), str(log), include_values=True)
+
+    message = result["messages"][0]
+    assert message["defined_signal_count"] == 4
+    assert message["observed_signal_count"] == 4
+    assert [signal["name"] for signal in message["signals"]] == ["Selector", "Common", "First", "Second"]
+    selector = message["signals"][0]
+    assert selector["observed_values"] == ["Zero", "One"]
+    assert selector["value_labels"] == {"0": "Zero", "1": "One"}
+    first = message["signals"][2]
+    assert first["observed_values"] == ["Answer"]
+    assert message["multiplexers"] == [
+        {
+            "signal": "Selector",
+            "observed_values": [
+                {"selector": 0, "value": 0.0, "label": "Zero"},
+                {"selector": 1, "value": 1.0, "label": "One"},
+            ],
+            "returned_values": 2,
+            "values_truncated": False,
+        }
+    ]
+
+
+def test_log_signal_inventory_reports_exact_and_j1939_auto_matches(tmp_path: Path) -> None:
+    dbc = _write_j1939_dbc(tmp_path / "j1939.dbc")
+    log = _write_candump(
+        tmp_path / "j1939.log",
+        [
+            (1.0, 0x0CF004AB, b"\x2a" + b"\x00" * 7),
+            (2.0, 0x18F00401, b"\x2b" + b"\x00" * 7),
+        ],
+    )
+
+    result = tools.log_signal_inventory(str(dbc), str(log))
+
+    assert result["match_modes_used"] == ["exact", "j1939"]
+    assert [(item["id"], item["match_mode"]) for item in result["matched_ids"]] == [
+        ("0xCF004AB", "j1939"),
+        ("0x18F00401", "exact"),
+    ]
+    assert result["messages"][0]["frame_count"] == 2
+    assert result["messages"][0]["source_id_count"] == 2
+
+    forced = tools.log_signal_inventory(str(dbc), str(log), match_mode="j1939")
+    assert forced["match_modes_used"] == ["j1939"]
+    assert {item["match_mode"] for item in forced["matched_ids"]} == {"j1939"}
+
+    exact = tools.log_signal_inventory(str(dbc), str(log), match_mode="exact")
+    assert exact["match_modes_used"] == ["exact"]
+    assert exact["matched_id_count"] == 1
+    assert exact["unmatched_id_count"] == 1
+
+
+def test_log_signal_inventory_keeps_ambiguous_j1939_matches_explicit(tmp_path: Path) -> None:
+    dbc = _write_j1939_dbc(tmp_path / "ambiguous.dbc", ambiguous=True)
+    log = _write_candump(
+        tmp_path / "ambiguous.log",
+        [(1.0, 0x0CF004AB, b"\x2a" + b"\x00" * 7)],
+    )
+
+    result = tools.log_signal_inventory(str(dbc), str(log))
+
+    assert result["matched_id_count"] == 0
+    assert result["unmatched_id_count"] == 0
+    assert result["ambiguity_count"] == 1
+    assert result["ambiguous_frame_count"] == 1
+    assert result["match_modes_used"] == ["j1939"]
+    ambiguity = result["ambiguities"][0]
+    assert ambiguity["id"] == "0xCF004AB"
+    assert [candidate["message"] for candidate in ambiguity["candidates"]] == [
+        "EngineData",
+        "EngineVariant",
+    ]
+
+
+def test_log_signal_inventory_surfaces_lenient_diagnostics_and_safety(tmp_path: Path) -> None:
+    dbc = tmp_path / "degraded.dbc"
+    dbc.write_text(
+        '''VERSION ""
+NS_ :
+BS_ :
+BU_ : ECU
+BO_ 100 ExtendedMux: 8 ECU
+ SG_ Kept : 0|8@1+ (1,0) [0|255] "" ECU
+ SG_ Variant m0M : 8|8@1+ (1,0) [0|255] "" ECU
+CM_ SG_ 100 Missing "dangling";
+SG_MUL_VAL_ 100 Kept Kept 0-1;
+''',
+        encoding="utf-8",
+    )
+    log = _write_candump(tmp_path / "degraded.log", [(1.0, 100, b"\x2a" + b"\x00" * 7)])
+
+    result = tools.log_signal_inventory(str(dbc), str(log))
+
+    assert result["dbc_decode_safe"] is False
+    assert result["diagnostic_count"] == 3
+    assert [item["construct"] for item in result["parse_diagnostics"]] == ["SG_", "CM_", "SG_MUL_VAL_"]
+    assert result["parse_diagnostics"][0]["message_id"] == "0x64"
+    message = result["messages"][0]
+    assert message["decode_safe"] is False
+    assert [signal["name"] for signal in message["signals"]] == ["Kept"]
+    with pytest.raises(ValueError, match="Cannot load DBC file"):
+        tools.dbc_info(str(dbc))
+
+
+def test_log_signal_inventory_parses_and_scans_only_once(
+    sample_dbc: Path,
+    candump_log: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_load = tools.dbckit.load
+    real_read = tools.capkit.read
+    load_calls = 0
+    read_calls = 0
+
+    def counting_load(path: str, **kwargs: object) -> tools.Database:
+        nonlocal load_calls
+        load_calls += 1
+        return real_load(path, **kwargs)
+
+    def counting_read(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        nonlocal read_calls
+        read_calls += 1
+        return real_read(*args, **kwargs)
+
+    monkeypatch.setattr(tools.dbckit, "load", counting_load)
+    monkeypatch.setattr(tools.capkit, "read", counting_read)
+
+    tools.log_signal_inventory(str(sample_dbc), str(candump_log))
+
+    assert load_calls == 1
+    assert read_calls == 1
+
+
+def test_log_signal_inventory_reports_nested_truncation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbc = _write_mux_dbc(tmp_path / "bounded.dbc")
+    with dbc.open("a", encoding="utf-8") as handle:
+        handle.write(
+            '''BO_ 201 OtherMessage: 1 ECU
+ SG_ Other : 0|8@1+ (1,0) [0|255] "" ECU
+'''
+        )
+    log = _write_candump(
+        tmp_path / "bounded.log",
+        [
+            (1.0, 200, bytes.fromhex("202A")),
+            (2.0, 200, bytes.fromhex("2107")),
+            (3.0, 201, b"\x01"),
+            (4.0, 300, b"\x00"),
+            (5.0, 301, b"\x00"),
+        ],
+    )
+    monkeypatch.setattr(tools, "MAX_INVENTORY_IDS", 1)
+    monkeypatch.setattr(tools, "MAX_INVENTORY_MESSAGES", 1)
+    monkeypatch.setattr(tools, "MAX_SIGNALS_PER_MESSAGE", 1)
+    monkeypatch.setattr(tools, "MAX_INVENTORY_VALUES_PER_SIGNAL", 1)
+    monkeypatch.setattr(tools, "MAX_INVENTORY_VALUE_LABELS_PER_SIGNAL", 1)
+    monkeypatch.setattr(tools, "MAX_INVENTORY_MUX_VALUES", 1)
+
+    result = tools.log_signal_inventory(str(dbc), str(log), include_values=True)
+
+    assert result["truncated"] is True
+    assert result["unique_ids_truncated"] is True
+    assert result["matched_ids_truncated"] is True
+    assert result["unmatched_ids_truncated"] is True
+    assert result["messages_truncated"] is True
+    message = result["messages"][0]
+    assert message["signals_truncated"] is True
+    selector = message["signals"][0]
+    assert selector["value_labels_truncated"] is True
+    assert selector["values_truncated"] is True
+    assert message["multiplexers"][0]["values_truncated"] is True
+
+
+def test_log_signal_inventory_bounds_diagnostics_and_ambiguity_candidates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dbc = _write_j1939_dbc(tmp_path / "ambiguous.dbc", ambiguous=True)
+    with dbc.open("a", encoding="utf-8") as handle:
+        handle.write('CM_ SG_ 418382849 Missing "dangling";\n')
+        handle.write('CM_ SG_ 418382850 Missing "dangling";\n')
+    log = _write_candump(
+        tmp_path / "ambiguous.log",
+        [(1.0, 0x0CF004AB, b"\x2a" + b"\x00" * 7)],
+    )
+    monkeypatch.setattr(tools, "MAX_INVENTORY_MESSAGES", 1)
+    monkeypatch.setattr(tools, "MAX_INVENTORY_DIAGNOSTICS", 1)
+
+    result = tools.log_signal_inventory(str(dbc), str(log))
+
+    assert result["truncated"] is True
+    assert result["diagnostic_count"] == 2
+    assert result["returned_diagnostics"] == 1
+    assert result["diagnostics_truncated"] is True
+    ambiguity = result["ambiguities"][0]
+    assert ambiguity["candidate_count"] == 2
+    assert ambiguity["returned_candidates"] == 1
+    assert ambiguity["candidates_truncated"] is True
+    assert result["ambiguities_truncated"] is True
+
+
+def test_log_signal_inventory_rejects_bad_modes_and_maps_decoder_errors(
+    sample_dbc: Path,
+    candump_log: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ValueError, match="match_mode"):
+        tools.log_signal_inventory(str(sample_dbc), str(candump_log), match_mode="bad")  # type: ignore[arg-type]
+
+    def fail_decode(*args: object, **kwargs: object):  # type: ignore[no-untyped-def]
+        raise RuntimeError("decoder failed")
+
+    monkeypatch.setattr(tools.dbckit, "decode_frames", fail_decode)
+    with pytest.raises(ValueError, match="Cannot inventory log file.*decoder failed"):
+        tools.log_signal_inventory(str(sample_dbc), str(candump_log))
 
 
 def test_read_frames_filters_ids_and_time(candump_log: Path) -> None:
