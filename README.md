@@ -150,6 +150,10 @@ pytest --cov=canforge_mcp --cov-fail-under=90
 python -m build
 ```
 
+Large-log performance checks are opt-in and generate their own deterministic
+captures. See [benchmarks/README.md](benchmarks/README.md) for the smoke command,
+the full 100k/1M matrix, measurement policy, and committed v0.2.0 baseline.
+
 ## License
 
 MIT

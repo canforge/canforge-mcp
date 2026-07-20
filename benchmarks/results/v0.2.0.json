@@ -1,0 +1,1484 @@
+{
+  "schema_version": 1,
+  "baseline_target": "v0.2.0",
+  "generated_at_utc": "2026-07-20T18:40:58.789720+00:00",
+  "environment": {
+    "python": "3.14.2",
+    "python_implementation": "CPython",
+    "os": "macOS-26.5-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "canforge_mcp": "0.1.0",
+    "capkit": "0.3.0",
+    "dbckit": "1.1.1"
+  },
+  "policy": {
+    "process_isolation": "one tool/case/repetition per fresh subprocess",
+    "wall_clock": "time.perf_counter",
+    "python_allocations": "tracemalloc peak",
+    "process_memory": "resource.getrusage peak RSS normalized to bytes",
+    "warmups": 0,
+    "repetitions": 1,
+    "timing_is_informational": true
+  },
+  "fixture_manifest": {
+    "schema_version": 1,
+    "generator_version": 1,
+    "seed": 847892,
+    "start_timestamp_us": 1700000000000000,
+    "cadence_us": 1000,
+    "profile_period": 100,
+    "dbc": "fixtures/benchmark.dbc",
+    "captures": [
+      {
+        "file": "sparse-100000.log",
+        "profile": "sparse",
+        "frame_count": 100000,
+        "file_size_bytes": 4810000,
+        "sha256": "63036a674c7ef136126b3d8c2ce42cb3951376d003fe3335ffdbde6e564d19f1",
+        "matched_frame_count": 4000,
+        "engine_frame_count": 1000,
+        "id_counts": {
+          "0x1F4": 1000,
+          "0x321": 1000,
+          "0x600": 12000,
+          "0x601": 12000,
+          "0x602": 12000,
+          "0x603": 12000,
+          "0x604": 12000,
+          "0x605": 12000,
+          "0x606": 12000,
+          "0x607": 12000,
+          "0xCFBFFDB": 1000,
+          "0x18EBFF00": 1000
+        }
+      },
+      {
+        "file": "dense-100000.log",
+        "profile": "dense",
+        "frame_count": 100000,
+        "file_size_bytes": 5200000,
+        "sha256": "2a2088a30926e4c3f8b0d52e3f33371993e57525168f87685e3d4802c91df67e",
+        "matched_frame_count": 95000,
+        "engine_frame_count": 70000,
+        "id_counts": {
+          "0x1F4": 10000,
+          "0x321": 5000,
+          "0x600": 625,
+          "0x601": 625,
+          "0x602": 625,
+          "0x603": 625,
+          "0x604": 625,
+          "0x605": 625,
+          "0x606": 625,
+          "0x607": 625,
+          "0xCFBFFDB": 70000,
+          "0x18EBFF00": 10000
+        }
+      },
+      {
+        "file": "sparse-1000000.log",
+        "profile": "sparse",
+        "frame_count": 1000000,
+        "file_size_bytes": 48100000,
+        "sha256": "c8e0e57b808c634b2384a39762381850b9e901dc8a434ee4849d5640529e8252",
+        "matched_frame_count": 40000,
+        "engine_frame_count": 10000,
+        "id_counts": {
+          "0x1F4": 10000,
+          "0x321": 10000,
+          "0x600": 120000,
+          "0x601": 120000,
+          "0x602": 120000,
+          "0x603": 120000,
+          "0x604": 120000,
+          "0x605": 120000,
+          "0x606": 120000,
+          "0x607": 120000,
+          "0xCFBFFDB": 10000,
+          "0x18EBFF00": 10000
+        }
+      },
+      {
+        "file": "dense-1000000.log",
+        "profile": "dense",
+        "frame_count": 1000000,
+        "file_size_bytes": 52000000,
+        "sha256": "09c35605f31c91482218dc8bc2f1d4dacbda3aff2bbe2fd4b61446d600b475c3",
+        "matched_frame_count": 950000,
+        "engine_frame_count": 700000,
+        "id_counts": {
+          "0x1F4": 100000,
+          "0x321": 50000,
+          "0x600": 6250,
+          "0x601": 6250,
+          "0x602": 6250,
+          "0x603": 6250,
+          "0x604": 6250,
+          "0x605": 6250,
+          "0x606": 6250,
+          "0x607": 6250,
+          "0xCFBFFDB": 700000,
+          "0x18EBFF00": 100000
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "log_stats.sparse.100000.top20",
+      "tool": "log_stats",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "top": 20
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "returned": 12,
+        "truncated": false,
+        "top": 20
+      },
+      "invariants": {
+        "exact_total": true,
+        "top_cap_honored": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.439550207927823,
+          "python_peak_bytes": 3530917,
+          "peak_rss_bytes": 54837248,
+          "peak_rss_delta_bytes": 14745600,
+          "rss_before_bytes": 40091648
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.439550207927823,
+        "python_peak_bytes_median": 3530917,
+        "peak_rss_bytes_median": 54837248,
+        "peak_rss_delta_bytes_median": 14745600,
+        "rss_before_bytes_median": 40091648
+      }
+    },
+    {
+      "name": "decode_log.sparse.100000.limit1",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "limit": 1
+      },
+      "result": {
+        "total": 4000,
+        "returned": 1,
+        "truncated": true,
+        "limit": 1
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4538007080554962,
+          "python_peak_bytes": 2028182,
+          "peak_rss_bytes": 44236800,
+          "peak_rss_delta_bytes": 4063232,
+          "rss_before_bytes": 40173568
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4538007080554962,
+        "python_peak_bytes_median": 2028182,
+        "peak_rss_bytes_median": 44236800,
+        "peak_rss_delta_bytes_median": 4063232,
+        "rss_before_bytes_median": 40173568
+      }
+    },
+    {
+      "name": "decode_log.sparse.100000.limit100",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "limit": 100
+      },
+      "result": {
+        "total": 4000,
+        "returned": 100,
+        "truncated": true,
+        "limit": 100
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4515601671300828,
+          "python_peak_bytes": 2027815,
+          "peak_rss_bytes": 44400640,
+          "peak_rss_delta_bytes": 4227072,
+          "rss_before_bytes": 40173568
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4515601671300828,
+        "python_peak_bytes_median": 2027815,
+        "peak_rss_bytes_median": 44400640,
+        "peak_rss_delta_bytes_median": 4227072,
+        "rss_before_bytes_median": 40173568
+      }
+    },
+    {
+      "name": "decode_log.sparse.100000.limit500",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "limit": 500
+      },
+      "result": {
+        "total": 4000,
+        "returned": 500,
+        "truncated": true,
+        "limit": 500
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4549115826375782,
+          "python_peak_bytes": 2027779,
+          "peak_rss_bytes": 44793856,
+          "peak_rss_delta_bytes": 4521984,
+          "rss_before_bytes": 40271872
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4549115826375782,
+        "python_peak_bytes_median": 2027779,
+        "peak_rss_bytes_median": 44793856,
+        "peak_rss_delta_bytes_median": 4521984,
+        "rss_before_bytes_median": 40271872
+      }
+    },
+    {
+      "name": "log_signal_inventory.sparse.100000.no-values",
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "include_values": false
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": false,
+        "max_returned_values_per_signal": 0,
+        "value_collection_truncated": false,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.6735794167034328,
+          "python_peak_bytes": 2027983,
+          "peak_rss_bytes": 44449792,
+          "peak_rss_delta_bytes": 4308992,
+          "rss_before_bytes": 40140800
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.6735794167034328,
+        "python_peak_bytes_median": 2027983,
+        "peak_rss_bytes_median": 44449792,
+        "peak_rss_delta_bytes_median": 4308992,
+        "rss_before_bytes_median": 40140800
+      }
+    },
+    {
+      "name": "log_signal_inventory.sparse.100000.values",
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "include_values": true
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": true,
+        "max_returned_values_per_signal": 50,
+        "value_collection_truncated": true,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.6847023330628872,
+          "python_peak_bytes": 2028935,
+          "peak_rss_bytes": 44449792,
+          "peak_rss_delta_bytes": 4325376,
+          "rss_before_bytes": 40124416
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.6847023330628872,
+        "python_peak_bytes_median": 2028935,
+        "peak_rss_bytes_median": 44449792,
+        "peak_rss_delta_bytes_median": 4325376,
+        "rss_before_bytes_median": 40124416
+      }
+    },
+    {
+      "name": "signal_timeseries.sparse.100000.max500",
+      "tool": "signal_timeseries",
+      "profile": "sparse",
+      "frame_count": 100000,
+      "input_file": "sparse-100000.log",
+      "input_size_bytes": 4810000,
+      "arguments": {
+        "message": "EngineData",
+        "signal": "EngineSpeed",
+        "max_points": 500
+      },
+      "result": {
+        "total": 1000,
+        "returned": 500,
+        "truncated": true,
+        "max_points": 500,
+        "first_point": [
+          1700000000.0,
+          2.5
+        ],
+        "last_point": [
+          1700000099.9,
+          7.375
+        ]
+      },
+      "invariants": {
+        "exact_total": true,
+        "point_cap_honored": true,
+        "exact_returned": true,
+        "first_point_preserved": true,
+        "last_point_preserved": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4627739586867392,
+          "python_peak_bytes": 2027779,
+          "peak_rss_bytes": 44548096,
+          "peak_rss_delta_bytes": 4538368,
+          "rss_before_bytes": 40009728
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4627739586867392,
+        "python_peak_bytes_median": 2027779,
+        "peak_rss_bytes_median": 44548096,
+        "peak_rss_delta_bytes_median": 4538368,
+        "rss_before_bytes_median": 40009728
+      }
+    },
+    {
+      "name": "log_stats.dense.100000.top20",
+      "tool": "log_stats",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "top": 20
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "returned": 12,
+        "truncated": false,
+        "top": 20
+      },
+      "invariants": {
+        "exact_total": true,
+        "top_cap_honored": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4620808330364525,
+          "python_peak_bytes": 3951261,
+          "peak_rss_bytes": 53379072,
+          "peak_rss_delta_bytes": 13221888,
+          "rss_before_bytes": 40157184
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4620808330364525,
+        "python_peak_bytes_median": 3951261,
+        "peak_rss_bytes_median": 53379072,
+        "peak_rss_delta_bytes_median": 13221888,
+        "rss_before_bytes_median": 40157184
+      }
+    },
+    {
+      "name": "decode_log.dense.100000.limit1",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "limit": 1
+      },
+      "result": {
+        "total": 95000,
+        "returned": 1,
+        "truncated": true,
+        "limit": 1
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.5251439586281776,
+          "python_peak_bytes": 2027803,
+          "peak_rss_bytes": 44548096,
+          "peak_rss_delta_bytes": 4440064,
+          "rss_before_bytes": 40108032
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.5251439586281776,
+        "python_peak_bytes_median": 2027803,
+        "peak_rss_bytes_median": 44548096,
+        "peak_rss_delta_bytes_median": 4440064,
+        "rss_before_bytes_median": 40108032
+      }
+    },
+    {
+      "name": "decode_log.dense.100000.limit100",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "limit": 100
+      },
+      "result": {
+        "total": 95000,
+        "returned": 100,
+        "truncated": true,
+        "limit": 100
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.4964910000562668,
+          "python_peak_bytes": 2027779,
+          "peak_rss_bytes": 44482560,
+          "peak_rss_delta_bytes": 4374528,
+          "rss_before_bytes": 40108032
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.4964910000562668,
+        "python_peak_bytes_median": 2027779,
+        "peak_rss_bytes_median": 44482560,
+        "peak_rss_delta_bytes_median": 4374528,
+        "rss_before_bytes_median": 40108032
+      }
+    },
+    {
+      "name": "decode_log.dense.100000.limit500",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "limit": 500
+      },
+      "result": {
+        "total": 95000,
+        "returned": 500,
+        "truncated": true,
+        "limit": 500
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 1.5069614588283002,
+          "python_peak_bytes": 2027795,
+          "peak_rss_bytes": 44466176,
+          "peak_rss_delta_bytes": 4390912,
+          "rss_before_bytes": 40075264
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 1.5069614588283002,
+        "python_peak_bytes_median": 2027795,
+        "peak_rss_bytes_median": 44466176,
+        "peak_rss_delta_bytes_median": 4390912,
+        "rss_before_bytes_median": 40075264
+      }
+    },
+    {
+      "name": "log_signal_inventory.dense.100000.no-values",
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "include_values": false
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": false,
+        "max_returned_values_per_signal": 0,
+        "value_collection_truncated": false,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 4.48943204106763,
+          "python_peak_bytes": 2028023,
+          "peak_rss_bytes": 44679168,
+          "peak_rss_delta_bytes": 4423680,
+          "rss_before_bytes": 40255488
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 4.48943204106763,
+        "python_peak_bytes_median": 2028023,
+        "peak_rss_bytes_median": 44679168,
+        "peak_rss_delta_bytes_median": 4423680,
+        "rss_before_bytes_median": 40255488
+      }
+    },
+    {
+      "name": "log_signal_inventory.dense.100000.values",
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "include_values": true
+      },
+      "result": {
+        "frame_count": 100000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": true,
+        "max_returned_values_per_signal": 50,
+        "value_collection_truncated": true,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 4.717565875034779,
+          "python_peak_bytes": 2027987,
+          "peak_rss_bytes": 44449792,
+          "peak_rss_delta_bytes": 4276224,
+          "rss_before_bytes": 40173568
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 4.717565875034779,
+        "python_peak_bytes_median": 2027987,
+        "peak_rss_bytes_median": 44449792,
+        "peak_rss_delta_bytes_median": 4276224,
+        "rss_before_bytes_median": 40173568
+      }
+    },
+    {
+      "name": "signal_timeseries.dense.100000.max500",
+      "tool": "signal_timeseries",
+      "profile": "dense",
+      "frame_count": 100000,
+      "input_file": "dense-100000.log",
+      "input_size_bytes": 5200000,
+      "arguments": {
+        "message": "EngineData",
+        "signal": "EngineSpeed",
+        "max_points": 500
+      },
+      "result": {
+        "total": 70000,
+        "returned": 500,
+        "truncated": true,
+        "max_points": 500,
+        "first_point": [
+          1700000000.0,
+          2.5
+        ],
+        "last_point": [
+          1700000099.969,
+          0.375
+        ]
+      },
+      "invariants": {
+        "exact_total": true,
+        "point_cap_honored": true,
+        "exact_returned": true,
+        "first_point_preserved": true,
+        "last_point_preserved": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 2.1907657077535987,
+          "python_peak_bytes": 10403389,
+          "peak_rss_bytes": 81231872,
+          "peak_rss_delta_bytes": 40779776,
+          "rss_before_bytes": 40452096
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 2.1907657077535987,
+        "python_peak_bytes_median": 10403389,
+        "peak_rss_bytes_median": 81231872,
+        "peak_rss_delta_bytes_median": 40779776,
+        "rss_before_bytes_median": 40452096
+      }
+    },
+    {
+      "name": "log_stats.sparse.1000000.top20",
+      "tool": "log_stats",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "top": 20
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "returned": 12,
+        "truncated": false,
+        "top": 20
+      },
+      "invariants": {
+        "exact_total": true,
+        "top_cap_honored": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 14.329385042190552,
+          "python_peak_bytes": 33728230,
+          "peak_rss_bytes": 143654912,
+          "peak_rss_delta_bytes": 103481344,
+          "rss_before_bytes": 40173568
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 14.329385042190552,
+        "python_peak_bytes_median": 33728230,
+        "peak_rss_bytes_median": 143654912,
+        "peak_rss_delta_bytes_median": 103481344,
+        "rss_before_bytes_median": 40173568
+      }
+    },
+    {
+      "name": "decode_log.sparse.1000000.limit1",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "limit": 1
+      },
+      "result": {
+        "total": 40000,
+        "returned": 1,
+        "truncated": true,
+        "limit": 1
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 13.373962207697332,
+          "python_peak_bytes": 2027767,
+          "peak_rss_bytes": 44482560,
+          "peak_rss_delta_bytes": 4440064,
+          "rss_before_bytes": 40042496
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 13.373962207697332,
+        "python_peak_bytes_median": 2027767,
+        "peak_rss_bytes_median": 44482560,
+        "peak_rss_delta_bytes_median": 4440064,
+        "rss_before_bytes_median": 40042496
+      }
+    },
+    {
+      "name": "decode_log.sparse.1000000.limit100",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "limit": 100
+      },
+      "result": {
+        "total": 40000,
+        "returned": 100,
+        "truncated": true,
+        "limit": 100
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 13.465719749685377,
+          "python_peak_bytes": 2027819,
+          "peak_rss_bytes": 44417024,
+          "peak_rss_delta_bytes": 4341760,
+          "rss_before_bytes": 40075264
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 13.465719749685377,
+        "python_peak_bytes_median": 2027819,
+        "peak_rss_bytes_median": 44417024,
+        "peak_rss_delta_bytes_median": 4341760,
+        "rss_before_bytes_median": 40075264
+      }
+    },
+    {
+      "name": "decode_log.sparse.1000000.limit500",
+      "tool": "decode_log",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "limit": 500
+      },
+      "result": {
+        "total": 40000,
+        "returned": 500,
+        "truncated": true,
+        "limit": 500
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 13.20857624989003,
+          "python_peak_bytes": 2027791,
+          "peak_rss_bytes": 44695552,
+          "peak_rss_delta_bytes": 4636672,
+          "rss_before_bytes": 40058880
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 13.20857624989003,
+        "python_peak_bytes_median": 2027791,
+        "peak_rss_bytes_median": 44695552,
+        "peak_rss_delta_bytes_median": 4636672,
+        "rss_before_bytes_median": 40058880
+      }
+    },
+    {
+      "name": "log_signal_inventory.sparse.1000000.no-values",
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "include_values": false
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": false,
+        "max_returned_values_per_signal": 0,
+        "value_collection_truncated": false,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 15.806413542013615,
+          "python_peak_bytes": 2027983,
+          "peak_rss_bytes": 44597248,
+          "peak_rss_delta_bytes": 4276224,
+          "rss_before_bytes": 40321024
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 15.806413542013615,
+        "python_peak_bytes_median": 2027983,
+        "peak_rss_bytes_median": 44597248,
+        "peak_rss_delta_bytes_median": 4276224,
+        "rss_before_bytes_median": 40321024
+      }
+    },
+    {
+      "name": "log_signal_inventory.sparse.1000000.values",
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "include_values": true
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": true,
+        "max_returned_values_per_signal": 50,
+        "value_collection_truncated": true,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 16.86088762525469,
+          "python_peak_bytes": 2028003,
+          "peak_rss_bytes": 44531712,
+          "peak_rss_delta_bytes": 4472832,
+          "rss_before_bytes": 40058880
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 16.86088762525469,
+        "python_peak_bytes_median": 2028003,
+        "peak_rss_bytes_median": 44531712,
+        "peak_rss_delta_bytes_median": 4472832,
+        "rss_before_bytes_median": 40058880
+      }
+    },
+    {
+      "name": "signal_timeseries.sparse.1000000.max500",
+      "tool": "signal_timeseries",
+      "profile": "sparse",
+      "frame_count": 1000000,
+      "input_file": "sparse-1000000.log",
+      "input_size_bytes": 48100000,
+      "arguments": {
+        "message": "EngineData",
+        "signal": "EngineSpeed",
+        "max_points": 500
+      },
+      "result": {
+        "total": 10000,
+        "returned": 500,
+        "truncated": true,
+        "max_points": 500,
+        "first_point": [
+          1700000000.0,
+          2.5
+        ],
+        "last_point": [
+          1700000999.9,
+          4.375
+        ]
+      },
+      "invariants": {
+        "exact_total": true,
+        "point_cap_honored": true,
+        "exact_returned": true,
+        "first_point_preserved": true,
+        "last_point_preserved": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 14.341606500092894,
+          "python_peak_bytes": 2836164,
+          "peak_rss_bytes": 44367872,
+          "peak_rss_delta_bytes": 4407296,
+          "rss_before_bytes": 39960576
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 14.341606500092894,
+        "python_peak_bytes_median": 2836164,
+        "peak_rss_bytes_median": 44367872,
+        "peak_rss_delta_bytes_median": 4407296,
+        "rss_before_bytes_median": 39960576
+      }
+    },
+    {
+      "name": "log_stats.dense.1000000.top20",
+      "tool": "log_stats",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "top": 20
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "returned": 12,
+        "truncated": false,
+        "top": 20
+      },
+      "invariants": {
+        "exact_total": true,
+        "top_cap_honored": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 14.645416167099029,
+          "python_peak_bytes": 38970074,
+          "peak_rss_bytes": 155385856,
+          "peak_rss_delta_bytes": 115195904,
+          "rss_before_bytes": 40189952
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 14.645416167099029,
+        "python_peak_bytes_median": 38970074,
+        "peak_rss_bytes_median": 155385856,
+        "peak_rss_delta_bytes_median": 115195904,
+        "rss_before_bytes_median": 40189952
+      }
+    },
+    {
+      "name": "decode_log.dense.1000000.limit1",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "limit": 1
+      },
+      "result": {
+        "total": 950000,
+        "returned": 1,
+        "truncated": true,
+        "limit": 1
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 15.00737087475136,
+          "python_peak_bytes": 2028187,
+          "peak_rss_bytes": 44269568,
+          "peak_rss_delta_bytes": 4243456,
+          "rss_before_bytes": 40026112
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 15.00737087475136,
+        "python_peak_bytes_median": 2028187,
+        "peak_rss_bytes_median": 44269568,
+        "peak_rss_delta_bytes_median": 4243456,
+        "rss_before_bytes_median": 40026112
+      }
+    },
+    {
+      "name": "decode_log.dense.1000000.limit100",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "limit": 100
+      },
+      "result": {
+        "total": 950000,
+        "returned": 100,
+        "truncated": true,
+        "limit": 100
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 14.46568537503481,
+          "python_peak_bytes": 2027783,
+          "peak_rss_bytes": 44466176,
+          "peak_rss_delta_bytes": 4341760,
+          "rss_before_bytes": 40124416
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 14.46568537503481,
+        "python_peak_bytes_median": 2027783,
+        "peak_rss_bytes_median": 44466176,
+        "peak_rss_delta_bytes_median": 4341760,
+        "rss_before_bytes_median": 40124416
+      }
+    },
+    {
+      "name": "decode_log.dense.1000000.limit500",
+      "tool": "decode_log",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "limit": 500
+      },
+      "result": {
+        "total": 950000,
+        "returned": 500,
+        "truncated": true,
+        "limit": 500
+      },
+      "invariants": {
+        "exact_total": true,
+        "sample_bounded": true,
+        "exact_returned": true,
+        "truncation_exact": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 14.362785292323679,
+          "python_peak_bytes": 2027907,
+          "peak_rss_bytes": 44417024,
+          "peak_rss_delta_bytes": 4341760,
+          "rss_before_bytes": 40075264
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 14.362785292323679,
+        "python_peak_bytes_median": 2027907,
+        "peak_rss_bytes_median": 44417024,
+        "peak_rss_delta_bytes_median": 4341760,
+        "rss_before_bytes_median": 40075264
+      }
+    },
+    {
+      "name": "log_signal_inventory.dense.1000000.no-values",
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "include_values": false
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": false,
+        "max_returned_values_per_signal": 0,
+        "value_collection_truncated": false,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 46.56242679199204,
+          "python_peak_bytes": 2028011,
+          "peak_rss_bytes": 44515328,
+          "peak_rss_delta_bytes": 4358144,
+          "rss_before_bytes": 40157184
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 46.56242679199204,
+        "python_peak_bytes_median": 2028011,
+        "peak_rss_bytes_median": 44515328,
+        "peak_rss_delta_bytes_median": 4358144,
+        "rss_before_bytes_median": 40157184
+      }
+    },
+    {
+      "name": "log_signal_inventory.dense.1000000.values",
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "include_values": true
+      },
+      "result": {
+        "frame_count": 1000000,
+        "unique_id_count": 12,
+        "matched_id_count": 4,
+        "unmatched_id_count": 8,
+        "message_count": 4,
+        "include_values": true,
+        "max_returned_values_per_signal": 50,
+        "value_collection_truncated": true,
+        "max_returned_mux_values": 50,
+        "mux_collection_truncated": true,
+        "truncated": true
+      },
+      "invariants": {
+        "exact_total": true,
+        "retained_values_bounded": true,
+        "retained_mux_values_bounded": true,
+        "value_cap_exercised": true,
+        "mux_cap_exercised": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 46.81059508305043,
+          "python_peak_bytes": 2028268,
+          "peak_rss_bytes": 44482560,
+          "peak_rss_delta_bytes": 4407296,
+          "rss_before_bytes": 40075264
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 46.81059508305043,
+        "python_peak_bytes_median": 2028268,
+        "peak_rss_bytes_median": 44482560,
+        "peak_rss_delta_bytes_median": 4407296,
+        "rss_before_bytes_median": 40075264
+      }
+    },
+    {
+      "name": "signal_timeseries.dense.1000000.max500",
+      "tool": "signal_timeseries",
+      "profile": "dense",
+      "frame_count": 1000000,
+      "input_file": "dense-1000000.log",
+      "input_size_bytes": 52000000,
+      "arguments": {
+        "message": "EngineData",
+        "signal": "EngineSpeed",
+        "max_points": 500
+      },
+      "result": {
+        "total": 700000,
+        "returned": 500,
+        "truncated": true,
+        "max_points": 500,
+        "first_point": [
+          1700000000.0,
+          2.5
+        ],
+        "last_point": [
+          1700000999.969,
+          6.375
+        ]
+      },
+      "invariants": {
+        "exact_total": true,
+        "point_cap_honored": true,
+        "exact_returned": true,
+        "first_point_preserved": true,
+        "last_point_preserved": true
+      },
+      "measurements": [
+        {
+          "wall_time_seconds": 20.12323429202661,
+          "python_peak_bytes": 91235482,
+          "peak_rss_bytes": 413958144,
+          "peak_rss_delta_bytes": 373686272,
+          "rss_before_bytes": 40271872
+        }
+      ],
+      "metrics": {
+        "wall_time_seconds_median": 20.12323429202661,
+        "python_peak_bytes_median": 91235482,
+        "peak_rss_bytes_median": 413958144,
+        "peak_rss_delta_bytes_median": 373686272,
+        "rss_before_bytes_median": 40271872
+      }
+    }
+  ],
+  "scaling": [
+    {
+      "tool": "decode_log",
+      "profile": "dense",
+      "arguments": {
+        "limit": 100
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.666403188853733,
+      "python_peak_ratio_1m_to_100k": 1.0000019726015508,
+      "peak_rss_delta_ratio_1m_to_100k": 0.9925093632958801
+    },
+    {
+      "tool": "decode_log",
+      "profile": "dense",
+      "arguments": {
+        "limit": 1
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.839970049942073,
+      "python_peak_ratio_1m_to_100k": 1.0001893675075932,
+      "peak_rss_delta_ratio_1m_to_100k": 0.955719557195572
+    },
+    {
+      "tool": "decode_log",
+      "profile": "dense",
+      "arguments": {
+        "limit": 500
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.530957283732459,
+      "python_peak_ratio_1m_to_100k": 1.000055232407615,
+      "peak_rss_delta_ratio_1m_to_100k": 0.9888059701492538
+    },
+    {
+      "tool": "decode_log",
+      "profile": "sparse",
+      "arguments": {
+        "limit": 100
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.276721733353154,
+      "python_peak_ratio_1m_to_100k": 1.000001972566531,
+      "peak_rss_delta_ratio_1m_to_100k": 1.0271317829457365
+    },
+    {
+      "tool": "decode_log",
+      "profile": "sparse",
+      "arguments": {
+        "limit": 1
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.19930918563482,
+      "python_peak_ratio_1m_to_100k": 0.99979538325456,
+      "peak_rss_delta_ratio_1m_to_100k": 1.092741935483871
+    },
+    {
+      "tool": "decode_log",
+      "profile": "sparse",
+      "arguments": {
+        "limit": 500
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.07861096682211,
+      "python_peak_ratio_1m_to_100k": 1.0000059178046523,
+      "peak_rss_delta_ratio_1m_to_100k": 1.0253623188405796
+    },
+    {
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "arguments": {
+        "include_values": false
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 10.37156289839261,
+      "python_peak_ratio_1m_to_100k": 0.9999940829073437,
+      "peak_rss_delta_ratio_1m_to_100k": 0.9851851851851852
+    },
+    {
+      "tool": "log_signal_inventory",
+      "profile": "dense",
+      "arguments": {
+        "include_values": true
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.922616095467946,
+      "python_peak_ratio_1m_to_100k": 1.0001385610460027,
+      "peak_rss_delta_ratio_1m_to_100k": 1.0306513409961686
+    },
+    {
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "arguments": {
+        "include_values": false
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 9.444674919071735,
+      "python_peak_ratio_1m_to_100k": 1.0,
+      "peak_rss_delta_ratio_1m_to_100k": 0.9923954372623575
+    },
+    {
+      "tool": "log_signal_inventory",
+      "profile": "sparse",
+      "arguments": {
+        "include_values": true
+      },
+      "expected_characteristic": "bounded retained sample/state",
+      "wall_time_ratio_1m_to_100k": 10.008229521829303,
+      "python_peak_ratio_1m_to_100k": 0.9995406457082163,
+      "peak_rss_delta_ratio_1m_to_100k": 1.0340909090909092
+    },
+    {
+      "tool": "log_stats",
+      "profile": "dense",
+      "arguments": {
+        "top": 20
+      },
+      "expected_characteristic": "linear retained per-frame data",
+      "wall_time_ratio_1m_to_100k": 10.016830695115125,
+      "python_peak_ratio_1m_to_100k": 9.862692947896887,
+      "peak_rss_delta_ratio_1m_to_100k": 8.712515489467162
+    },
+    {
+      "tool": "log_stats",
+      "profile": "sparse",
+      "arguments": {
+        "top": 20
+      },
+      "expected_characteristic": "linear retained per-frame data",
+      "wall_time_ratio_1m_to_100k": 9.954071044744698,
+      "python_peak_ratio_1m_to_100k": 9.55225795452003,
+      "peak_rss_delta_ratio_1m_to_100k": 7.017777777777778
+    },
+    {
+      "tool": "signal_timeseries",
+      "profile": "dense",
+      "arguments": {
+        "max_points": 500,
+        "message": "EngineData",
+        "signal": "EngineSpeed"
+      },
+      "expected_characteristic": "linear retained per-frame data",
+      "wall_time_ratio_1m_to_100k": 9.185479862500168,
+      "python_peak_ratio_1m_to_100k": 8.769784730725728,
+      "peak_rss_delta_ratio_1m_to_100k": 9.163519485737243
+    },
+    {
+      "tool": "signal_timeseries",
+      "profile": "sparse",
+      "arguments": {
+        "max_points": 500,
+        "message": "EngineData",
+        "signal": "EngineSpeed"
+      },
+      "expected_characteristic": "linear retained per-frame data",
+      "wall_time_ratio_1m_to_100k": 9.804390087015642,
+      "python_peak_ratio_1m_to_100k": 1.398655376152924,
+      "peak_rss_delta_ratio_1m_to_100k": 0.9711191335740073
+    }
+  ]
+}

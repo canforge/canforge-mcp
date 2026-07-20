@@ -26,4 +26,7 @@ dist/
 build/
 *.egg-info/
 
+# Generated benchmark captures are intentionally local; only result summaries are committed.
+benchmarks/generated/
+
 DEFINITION.md

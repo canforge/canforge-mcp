@@ -15,6 +15,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   exact and J1939 matching, explicit ambiguities, observed signals and
   multiplexer values, optional decoded values, lenient parse diagnostics, and
   per-message decode-safety reporting.
+- Added deterministic sparse/dense large-log benchmarks for `log_stats`,
+  `decode_log`, `log_signal_inventory`, and `signal_timeseries`, including
+  isolated wall-time/allocation/RSS measurement, structural regression checks,
+  and a committed 100k/1M v0.2.0 baseline.
 
 ### Changed
 

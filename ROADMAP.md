@@ -49,7 +49,10 @@ took a long chain of low-level calls plus shell workarounds. 0.2.0 makes it one 
 
 ## Quality
 
-- [ ] Benchmark large-log scans and timeseries extraction.
-- [ ] Add bounded streaming quantile estimation if exact cycle-time medians use
-  too much memory on production captures.
+- [x] Benchmark large-log scans and timeseries extraction.
+- [ ] Bound `log_stats` cycle-time aggregation after the benchmark confirmed
+  linear delta retention; review exact-median semantics before choosing a
+  streaming estimator (CFM-16).
+- [ ] Bound `signal_timeseries` pre-downsample retention while preserving its
+  deterministic first/last-point and `max_points` contract.
 - [ ] Expand fixture coverage as new real-world dialects become available.
