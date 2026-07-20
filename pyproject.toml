@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "canforge-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local, read-only MCP tools for CAN databases and capture logs"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "mcp>=1.28,<2",
     "capkit>=0.3,<0.4",
-    "dbckit>=1.0,<2",
+    "dbckit>=1.1,<2",
 ]
 
 [project.urls]

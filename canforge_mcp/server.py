@@ -63,7 +63,7 @@ for tool in TOOLS:
 
 
 def main() -> None:
-    """Run the server over stdio, the only transport supported in 0.1."""
+    """Run the server over stdio, the only transport supported in the 0.x line."""
     mcp.run(transport="stdio")
 
 

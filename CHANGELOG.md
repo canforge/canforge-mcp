@@ -7,7 +7,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [Unreleased]
+## [0.2.0] — 2026-07-20
 
 ### Added
 
@@ -30,6 +30,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
   retaining exact `total` counts from matching DBC arbitration IDs.
 - Raised the supported capkit runtime range from `>=0.2,<0.3` to
   `>=0.3,<0.4`.
+- Raised the supported dbckit runtime range from `>=1.0,<2` to `>=1.1,<2` for
+  the lenient parsing and J1939 frame matching this release relies on.
 - Delegated log ID and inclusive time-window filtering to capkit 0.3's lazy
   stream operations.
 - Added raw J1939 priority, PGN, and source-address enrichment for observed

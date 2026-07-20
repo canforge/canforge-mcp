@@ -118,7 +118,7 @@ filesystem paths; provide an accessible local path instead.
   time for repeated inspection during one server session.
 - Composable: [capkit](https://github.com/canforge/capkit) reads capture formats;
   [dbckit](https://github.com/canforge/dbckit) parses and decodes DBC content.
-- Stdio-only: version 0.1 exposes no network transport or hosted service.
+- Stdio-only: the 0.x line exposes no network transport or hosted service.
 
 ## Scope and Caveats
 

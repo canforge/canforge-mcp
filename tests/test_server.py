@@ -14,7 +14,7 @@ from canforge_mcp.tools import TOOLS
 
 
 def test_version_matches_release() -> None:
-    assert __version__ == "0.1.0"
+    assert __version__ == "0.2.0"
 
 
 @pytest.mark.asyncio

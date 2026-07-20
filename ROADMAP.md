@@ -1,6 +1,6 @@
 # Roadmap
 
-The 0.1 line is deliberately local, read-only, bounded, and stdio-only.
+The 0.x line is deliberately local, read-only, bounded, and stdio-only.
 
 ## 0.2.0 — signal inventory (requires dbckit 1.1)
 
@@ -15,7 +15,7 @@ took a long chain of low-level calls plus shell workarounds. 0.2.0 makes it one 
   unmatched IDs with per-ID frame counts, signals per matched message (observed
   multiplexer values for multiplexed ones), units and value labels, per-message
   decode-safety, ambiguities, and truncation metadata.
-- [ ] Structured non-retryable errors for genuinely unparseable inputs: `code`,
+- [x] Structured non-retryable errors for genuinely unparseable inputs: `code`,
   `retryable: false`, `recommended_action` — so clients report and stop instead of
   improvising workarounds.
 - [x] Strengthen server instructions: for signal-availability questions call
@@ -23,9 +23,9 @@ took a long chain of low-level calls plus shell workarounds. 0.2.0 makes it one 
   degraded messages and continue with the safe ones; after a non-retryable error,
   relay it and the recommended action rather than falling back to shell or Python.
   (Advisory only — the durable protection is dbckit's lenient parsing.)
-- [ ] `decode_log`: stop signal-decoding matching frames past the output limit — count
+- [x] `decode_log`: stop signal-decoding matching frames past the output limit — count
   `total` from ID membership alone and decode only the bounded sample.
-- [ ] Pin `dbckit>=1.1,<2` and release as 0.2.0.
+- [x] Pin `dbckit>=1.1,<2` and release as 0.2.0.
 
 ## Tool surface
 
